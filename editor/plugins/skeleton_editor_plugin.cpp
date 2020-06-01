@@ -135,7 +135,7 @@ void BoneTransformEditor::_notification(int p_what) {
 			create_editors();
 			key_button->connect("pressed", this, "_key_button_pressed");
 			enabled_checkbox->connect("toggled", this, "_checkbox_toggled");
-			FALLTHROUGH
+			FALLTHROUGH;
 		}
 		case NOTIFICATION_THEME_CHANGED: {
 			const Color base = get_color("accent_color", "Editor");
