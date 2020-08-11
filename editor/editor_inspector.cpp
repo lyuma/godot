@@ -35,6 +35,7 @@
 #include "editor_node.h"
 #include "editor_scale.h"
 #include "multi_node_edit.h"
+#include "scene/main/viewport.h"
 #include "scene/resources/packed_scene.h"
 
 Size2 EditorProperty::get_minimum_size() const {
@@ -1146,6 +1147,17 @@ void EditorInspectorSection::_notification(int p_what) {
 			draw_texture(arrow, Point2(Math::round(arrow_margin * EDSCALE), (h - arrow->get_height()) / 2).floor());
 		}
 	}
+	if (p_what == NOTIFICATION_MOUSE_ENTER) {
+		if (get_tree()->get_root()->gui_is_dragging()) {
+			dropping_unfold_timer->start();
+		}
+	}
+
+	if (p_what == NOTIFICATION_MOUSE_EXIT) {
+		if (get_tree()->get_root()->gui_is_dragging()) {
+			dropping_unfold_timer->stop();
+		}
+	}
 }
 
 Size2 EditorInspectorSection::get_minimum_size() const {
@@ -1208,14 +1220,11 @@ void EditorInspectorSection::_gui_input(const Ref<InputEvent> &p_event) {
 			return;
 		}
 
-		_test_unfold();
-
-		bool unfold = !object->editor_is_section_unfolded(section);
-		object->editor_set_section_unfold(section, unfold);
-		if (unfold) {
-			vbox->show();
+		bool should_unfold = !object->editor_is_section_unfolded(section);
+		if (should_unfold) {
+			unfold();
 		} else {
-			vbox->hide();
+			fold();
 		}
 	}
 }
@@ -1262,6 +1271,13 @@ EditorInspectorSection::EditorInspectorSection() {
 	foldable = false;
 	vbox = memnew(VBoxContainer);
 	vbox_added = false;
+
+	dropping_unfold_timer = memnew(Timer);
+	float wait_time = EDITOR_GET("interface/inspector/drag_and_drop_section_expand_delay");
+	dropping_unfold_timer->set_wait_time(wait_time);
+	dropping_unfold_timer->set_one_shot(true);
+	add_child(dropping_unfold_timer);
+	dropping_unfold_timer->connect("timeout", this, "unfold");
 }
 
 EditorInspectorSection::~EditorInspectorSection() {
