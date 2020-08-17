@@ -1860,6 +1860,9 @@ void ResourceImporterScene::_fix_meshes(Map<int, ResourceImporterScene::RestBone
 		if (skin.is_null()) {
 			continue;
 		}
+		skin = skin->duplicate();
+		mi->set_skin(skin);
+
 		NodePath skeleton_path = mi->get_skeleton_path();
 		Node *node = mi->get_node_or_null(skeleton_path);
 		Skeleton *skeleton = Object::cast_to<Skeleton>(node);
@@ -1875,7 +1878,7 @@ void ResourceImporterScene::_fix_meshes(Map<int, ResourceImporterScene::RestBone
 			}
 			RestBone rest_bone = r_rest_bones[bone_index];
 			Transform pose = skin->get_bind_pose(bind_i);
-			skin->set_bind_pose(bind_i, Transform(rest_bone.rest_delta.inverse().slerp(Quat(), 0.5f)) * pose);
+			skin->set_bind_pose(bind_i, Transform(rest_bone.rest_delta.inverse()) * pose);
 		}
 	}
 }
