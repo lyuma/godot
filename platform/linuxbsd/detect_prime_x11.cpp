@@ -33,8 +33,8 @@
 
 #include "detect_prime.h"
 
-#include "core/print_string.h"
-#include "core/ustring.h"
+#include "core/string/print_string.h"
+#include "core/string/ustring.h"
 
 #include <stdlib.h>
 
@@ -56,7 +56,7 @@ typedef GLXContext (*GLXCREATECONTEXTATTRIBSARBPROC)(Display *, GLXFBConfig, GLX
 
 struct vendor {
 	const char *glxvendor;
-	int priority;
+	int priority = 0;
 };
 
 vendor vendormap[] = {

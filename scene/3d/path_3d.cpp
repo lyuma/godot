@@ -30,7 +30,7 @@
 
 #include "path_3d.h"
 
-#include "core/engine.h"
+#include "core/config/engine.h"
 #include "scene/scene_string_names.h"
 
 void Path3D::_notification(int p_what) {
@@ -94,10 +94,6 @@ void PathFollow3D::_update_transform(bool p_update_xyz_rot) {
 		return;
 	}
 
-	if (delta_offset == 0) {
-		return;
-	}
-
 	float bl = c->get_baked_length();
 	if (bl == 0.0) {
 		return;
@@ -156,7 +152,7 @@ void PathFollow3D::_update_transform(bool p_update_xyz_rot) {
 
 		t.origin = pos;
 
-		if (p_update_xyz_rot) { // Only update rotation if some parameter has changed - i.e. not on addition to scene tree
+		if (p_update_xyz_rot && delta_offset != 0) { // Only update rotation if some parameter has changed - i.e. not on addition to scene tree.
 			Vector3 t_prev = (pos - c->interpolate_baked(offset - delta_offset, cubic)).normalized();
 			Vector3 t_cur = (c->interpolate_baked(offset + delta_offset, cubic) - pos).normalized();
 
@@ -388,15 +384,4 @@ void PathFollow3D::set_loop(bool p_loop) {
 
 bool PathFollow3D::has_loop() const {
 	return loop;
-}
-
-PathFollow3D::PathFollow3D() {
-	offset = 0;
-	delta_offset = 0;
-	h_offset = 0;
-	v_offset = 0;
-	path = nullptr;
-	rotation_mode = ROTATION_XYZ;
-	cubic = true;
-	loop = true;
 }

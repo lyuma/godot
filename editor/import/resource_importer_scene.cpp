@@ -32,6 +32,7 @@
 
 #include "core/io/resource_saver.h"
 #include "editor/editor_node.h"
+#include "editor/import/scene_importer_mesh_node_3d.h"
 #include "scene/3d/collision_shape_3d.h"
 #include "scene/3d/mesh_instance_3d.h"
 #include "scene/3d/navigation_3d.h"
@@ -44,6 +45,7 @@
 #include "scene/resources/ray_shape_3d.h"
 #include "scene/resources/resource_format_text.h"
 #include "scene/resources/sphere_shape_3d.h"
+#include "scene/resources/surface_tool.h"
 #include "scene/resources/world_margin_shape_3d.h"
 
 uint32_t EditorSceneImporter::get_import_flags() const {
@@ -170,6 +172,10 @@ String ResourceImporterScene::get_save_extension() const {
 
 String ResourceImporterScene::get_resource_type() const {
 	return "PackedScene";
+}
+
+int ResourceImporterScene::get_format_version() const {
+	return 1;
 }
 
 bool ResourceImporterScene::get_option_visibility(const String &p_option, const Map<StringName, Variant> &p_options) const {
@@ -1120,9 +1126,9 @@ void ResourceImporterScene::get_import_options(List<ImportOption> *r_options, in
 	r_options->push_back(ImportOption(PropertyInfo(Variant::INT, "materials/location", PROPERTY_HINT_ENUM, "Node,Mesh"), (meshes_out || materials_out) ? 1 : 0));
 	r_options->push_back(ImportOption(PropertyInfo(Variant::INT, "materials/storage", PROPERTY_HINT_ENUM, "Built-In,Files (.material),Files (.tres)", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_UPDATE_ALL_IF_MODIFIED), materials_out ? 1 : 0));
 	r_options->push_back(ImportOption(PropertyInfo(Variant::BOOL, "materials/keep_on_reimport"), materials_out));
-	r_options->push_back(ImportOption(PropertyInfo(Variant::BOOL, "meshes/compress"), true));
 	r_options->push_back(ImportOption(PropertyInfo(Variant::BOOL, "meshes/ensure_tangents"), true));
 	r_options->push_back(ImportOption(PropertyInfo(Variant::INT, "meshes/storage", PROPERTY_HINT_ENUM, "Built-In,Files (.mesh),Files (.tres)"), meshes_out ? 1 : 0));
+	r_options->push_back(ImportOption(PropertyInfo(Variant::BOOL, "meshes/generate_lods"), true));
 	r_options->push_back(ImportOption(PropertyInfo(Variant::INT, "meshes/light_baking", PROPERTY_HINT_ENUM, "Disabled,Enable,Gen Lightmaps", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_UPDATE_ALL_IF_MODIFIED), 0));
 	r_options->push_back(ImportOption(PropertyInfo(Variant::FLOAT, "meshes/lightmap_texel_size", PROPERTY_HINT_RANGE, "0.001,100,0.001"), 0.1));
 	r_options->push_back(ImportOption(PropertyInfo(Variant::BOOL, "skins/use_named_skins"), true));
@@ -1215,6 +1221,40 @@ Ref<Animation> ResourceImporterScene::import_animation_from_other_importer(Edito
 	return importer->import_animation(p_path, p_flags, p_bake_fps);
 }
 
+void ResourceImporterScene::_generate_meshes(Node *p_node, bool p_generate_lods) {
+	EditorSceneImporterMeshNode3D *src_mesh_node = Object::cast_to<EditorSceneImporterMeshNode3D>(p_node);
+	if (src_mesh_node) {
+		//is mesh
+		MeshInstance3D *mesh_node = memnew(MeshInstance3D);
+		mesh_node->set_name(src_mesh_node->get_name());
+		mesh_node->set_transform(src_mesh_node->get_transform());
+		mesh_node->set_skin(src_mesh_node->get_skin());
+		mesh_node->set_skeleton_path(src_mesh_node->get_skeleton_path());
+		if (src_mesh_node->get_mesh().is_valid()) {
+			Ref<ArrayMesh> mesh;
+			if (!src_mesh_node->get_mesh()->has_mesh()) {
+				//do mesh processing
+				if (p_generate_lods) {
+					src_mesh_node->get_mesh()->generate_lods();
+				}
+			}
+			mesh = src_mesh_node->get_mesh()->get_mesh();
+			if (mesh.is_valid()) {
+				mesh_node->set_mesh(mesh);
+				for (int i = 0; i < mesh->get_surface_count(); i++) {
+					mesh_node->set_surface_material(i, src_mesh_node->get_surface_material(i));
+				}
+			}
+		}
+		p_node->replace_by(mesh_node);
+		memdelete(p_node);
+		p_node = mesh_node;
+	}
+
+	for (int i = 0; i < p_node->get_child_count(); i++) {
+		_generate_meshes(p_node->get_child(i), p_generate_lods);
+	}
+}
 Error ResourceImporterScene::import(const String &p_source_file, const String &p_save_path, const Map<StringName, Variant> &p_options, List<String> *r_platform_variants, List<String> *r_gen_files, Variant *r_metadata) {
 	const String &src_path = p_source_file;
 
@@ -1251,10 +1291,6 @@ Error ResourceImporterScene::import(const String &p_source_file, const String &p
 
 	if (bool(p_options["animation/import"])) {
 		import_flags |= EditorSceneImporter::IMPORT_ANIMATION;
-	}
-
-	if (int(p_options["meshes/compress"])) {
-		import_flags |= EditorSceneImporter::IMPORT_USE_COMPRESSION;
 	}
 
 	if (bool(p_options["meshes/ensure_tangents"])) {
@@ -1310,6 +1346,10 @@ Error ResourceImporterScene::import(const String &p_source_file, const String &p
 	} else {
 		scene->set_name(p_save_path.get_file().get_basename());
 	}
+
+	bool gen_lods = bool(p_options["meshes/generate_lods"]);
+
+	_generate_meshes(scene, gen_lods);
 
 	err = OK;
 

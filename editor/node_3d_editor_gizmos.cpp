@@ -398,10 +398,10 @@ void EditorNode3DGizmo::add_handles(const Vector<Vector3> &p_handles, const Ref<
 void EditorNode3DGizmo::add_solid_box(Ref<Material> &p_material, Vector3 p_size, Vector3 p_position) {
 	ERR_FAIL_COND(!spatial_node);
 
-	CubeMesh cubem;
-	cubem.set_size(p_size);
+	BoxMesh box_mesh;
+	box_mesh.set_size(p_size);
 
-	Array arrays = cubem.surface_get_arrays(0);
+	Array arrays = box_mesh.surface_get_arrays(0);
 	PackedVector3Array vertex = arrays[RS::ARRAY_VERTEX];
 	Vector3 *w = vertex.ptrw();
 
@@ -412,7 +412,7 @@ void EditorNode3DGizmo::add_solid_box(Ref<Material> &p_material, Vector3 p_size,
 	arrays[RS::ARRAY_VERTEX] = vertex;
 
 	Ref<ArrayMesh> m = memnew(ArrayMesh);
-	m->add_surface_from_arrays(cubem.surface_get_primitive_type(0), arrays);
+	m->add_surface_from_arrays(box_mesh.surface_get_primitive_type(0), arrays);
 	m->surface_set_material(0, p_material);
 	add_mesh(m);
 }
@@ -792,7 +792,7 @@ bool Light3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<Light3D>(p_spatial) != nullptr;
 }
 
-String Light3DGizmoPlugin::get_name() const {
+String Light3DGizmoPlugin::get_gizmo_name() const {
 	return "Light3D";
 }
 
@@ -1061,7 +1061,7 @@ bool AudioStreamPlayer3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<AudioStreamPlayer3D>(p_spatial) != nullptr;
 }
 
-String AudioStreamPlayer3DGizmoPlugin::get_name() const {
+String AudioStreamPlayer3DGizmoPlugin::get_gizmo_name() const {
 	return "AudioStreamPlayer3D";
 }
 
@@ -1195,7 +1195,7 @@ bool Camera3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<Camera3D>(p_spatial) != nullptr;
 }
 
-String Camera3DGizmoPlugin::get_name() const {
+String Camera3DGizmoPlugin::get_gizmo_name() const {
 	return "Camera3D";
 }
 
@@ -1432,7 +1432,7 @@ bool MeshInstance3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<MeshInstance3D>(p_spatial) != nullptr && Object::cast_to<SoftBody3D>(p_spatial) == nullptr;
 }
 
-String MeshInstance3DGizmoPlugin::get_name() const {
+String MeshInstance3DGizmoPlugin::get_gizmo_name() const {
 	return "MeshInstance3D";
 }
 
@@ -1469,7 +1469,7 @@ bool Sprite3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<Sprite3D>(p_spatial) != nullptr;
 }
 
-String Sprite3DGizmoPlugin::get_name() const {
+String Sprite3DGizmoPlugin::get_gizmo_name() const {
 	return "Sprite3D";
 }
 
@@ -1531,7 +1531,7 @@ bool Position3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<Position3D>(p_spatial) != nullptr;
 }
 
-String Position3DGizmoPlugin::get_name() const {
+String Position3DGizmoPlugin::get_gizmo_name() const {
 	return "Position3D";
 }
 
@@ -1556,7 +1556,7 @@ bool Skeleton3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<Skeleton3D>(p_spatial) != nullptr;
 }
 
-String Skeleton3DGizmoPlugin::get_name() const {
+String Skeleton3DGizmoPlugin::get_gizmo_name() const {
 	return "Skeleton3D";
 }
 
@@ -1625,13 +1625,13 @@ void Skeleton3DGizmoPlugin::redraw(EditorNode3DGizmo *p_gizmo) {
 			int pointidx = 0;
 			for (int j = 0; j < 3; j++) {
 				bones.write[0] = parent;
-				surface_tool->add_bones(bones);
-				surface_tool->add_weights(weights);
-				surface_tool->add_color(rootcolor);
+				surface_tool->set_bones(bones);
+				surface_tool->set_weights(weights);
+				surface_tool->set_color(rootcolor);
 				surface_tool->add_vertex(v0 - grests[parent].basis[j].normalized() * dist * 0.05);
-				surface_tool->add_bones(bones);
-				surface_tool->add_weights(weights);
-				surface_tool->add_color(rootcolor);
+				surface_tool->set_bones(bones);
+				surface_tool->set_weights(weights);
+				surface_tool->set_color(rootcolor);
 				surface_tool->add_vertex(v0 + grests[parent].basis[j].normalized() * dist * 0.05);
 
 				if (j == closest) {
@@ -1654,24 +1654,24 @@ void Skeleton3DGizmoPlugin::redraw(EditorNode3DGizmo *p_gizmo) {
 					point += axis * dist * 0.1;
 
 					bones.write[0] = parent;
-					surface_tool->add_bones(bones);
-					surface_tool->add_weights(weights);
-					surface_tool->add_color(bonecolor);
+					surface_tool->set_bones(bones);
+					surface_tool->set_weights(weights);
+					surface_tool->set_color(bonecolor);
 					surface_tool->add_vertex(v0);
-					surface_tool->add_bones(bones);
-					surface_tool->add_weights(weights);
-					surface_tool->add_color(bonecolor);
+					surface_tool->set_bones(bones);
+					surface_tool->set_weights(weights);
+					surface_tool->set_color(bonecolor);
 					surface_tool->add_vertex(point);
 
 					bones.write[0] = parent;
-					surface_tool->add_bones(bones);
-					surface_tool->add_weights(weights);
-					surface_tool->add_color(bonecolor);
+					surface_tool->set_bones(bones);
+					surface_tool->set_weights(weights);
+					surface_tool->set_color(bonecolor);
 					surface_tool->add_vertex(point);
 					bones.write[0] = i;
-					surface_tool->add_bones(bones);
-					surface_tool->add_weights(weights);
-					surface_tool->add_color(bonecolor);
+					surface_tool->set_bones(bones);
+					surface_tool->set_weights(weights);
+					surface_tool->set_color(bonecolor);
 					surface_tool->add_vertex(v1);
 					points[pointidx++] = point;
 				}
@@ -1680,13 +1680,13 @@ void Skeleton3DGizmoPlugin::redraw(EditorNode3DGizmo *p_gizmo) {
 			SWAP(points[1], points[2]);
 			for (int j = 0; j < 4; j++) {
 				bones.write[0] = parent;
-				surface_tool->add_bones(bones);
-				surface_tool->add_weights(weights);
-				surface_tool->add_color(bonecolor);
+				surface_tool->set_bones(bones);
+				surface_tool->set_weights(weights);
+				surface_tool->set_color(bonecolor);
 				surface_tool->add_vertex(points[j]);
-				surface_tool->add_bones(bones);
-				surface_tool->add_weights(weights);
-				surface_tool->add_color(bonecolor);
+				surface_tool->set_bones(bones);
+				surface_tool->set_weights(weights);
+				surface_tool->set_color(bonecolor);
 				surface_tool->add_vertex(points[(j + 1) % 4]);
 			}
 
@@ -1716,14 +1716,12 @@ void Skeleton3DGizmoPlugin::redraw(EditorNode3DGizmo *p_gizmo) {
 			Vector3 face_points[4];
 
 			for (int j=0;j<4;j++) {
-
 				float v[3];
 				v[0]=1.0;
 				v[1]=1-2*((j>>1)&1);
 				v[2]=v[1]*(1-2*(j&1));
 
 				for (int k=0;k<3;k++) {
-
 					if (i<3)
 						face_points[j][(i+k)%3]=v[k]*(i>=3?-1:1);
 					else
@@ -1760,7 +1758,7 @@ bool PhysicalBone3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<PhysicalBone3D>(p_spatial) != nullptr;
 }
 
-String PhysicalBone3DGizmoPlugin::get_name() const {
+String PhysicalBone3DGizmoPlugin::get_gizmo_name() const {
 	return "PhysicalBone3D";
 }
 
@@ -1897,7 +1895,7 @@ bool RayCast3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<RayCast3D>(p_spatial) != nullptr;
 }
 
-String RayCast3DGizmoPlugin::get_name() const {
+String RayCast3DGizmoPlugin::get_gizmo_name() const {
 	return "RayCast3D";
 }
 
@@ -1949,7 +1947,7 @@ bool SpringArm3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<SpringArm3D>(p_spatial) != nullptr;
 }
 
-String SpringArm3DGizmoPlugin::get_name() const {
+String SpringArm3DGizmoPlugin::get_gizmo_name() const {
 	return "SpringArm3D";
 }
 
@@ -1968,7 +1966,7 @@ bool VehicleWheel3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<VehicleWheel3D>(p_spatial) != nullptr;
 }
 
-String VehicleWheel3DGizmoPlugin::get_name() const {
+String VehicleWheel3DGizmoPlugin::get_gizmo_name() const {
 	return "VehicleWheel3D";
 }
 
@@ -2040,7 +2038,7 @@ bool SoftBody3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<SoftBody3D>(p_spatial) != nullptr;
 }
 
-String SoftBody3DGizmoPlugin::get_name() const {
+String SoftBody3DGizmoPlugin::get_gizmo_name() const {
 	return "SoftBody3D";
 }
 
@@ -2116,7 +2114,7 @@ bool VisibilityNotifier3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<VisibilityNotifier3D>(p_spatial) != nullptr;
 }
 
-String VisibilityNotifier3DGizmoPlugin::get_name() const {
+String VisibilityNotifier3DGizmoPlugin::get_gizmo_name() const {
 	return "VisibilityNotifier3D";
 }
 
@@ -2272,7 +2270,7 @@ bool CPUParticles3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<CPUParticles3D>(p_spatial) != nullptr;
 }
 
-String CPUParticles3DGizmoPlugin::get_name() const {
+String CPUParticles3DGizmoPlugin::get_gizmo_name() const {
 	return "CPUParticles3D";
 }
 
@@ -2304,7 +2302,7 @@ bool GPUParticles3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<GPUParticles3D>(p_spatial) != nullptr;
 }
 
-String GPUParticles3DGizmoPlugin::get_name() const {
+String GPUParticles3DGizmoPlugin::get_gizmo_name() const {
 	return "GPUParticles3D";
 }
 
@@ -2471,7 +2469,7 @@ bool GPUParticlesCollision3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return (Object::cast_to<GPUParticlesCollision3D>(p_spatial) != nullptr) || (Object::cast_to<GPUParticlesAttractor3D>(p_spatial) != nullptr);
 }
 
-String GPUParticlesCollision3DGizmoPlugin::get_name() const {
+String GPUParticlesCollision3DGizmoPlugin::get_gizmo_name() const {
 	return "GPUParticlesCollision3D";
 }
 
@@ -2735,7 +2733,7 @@ bool ReflectionProbeGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<ReflectionProbe>(p_spatial) != nullptr;
 }
 
-String ReflectionProbeGizmoPlugin::get_name() const {
+String ReflectionProbeGizmoPlugin::get_gizmo_name() const {
 	return "ReflectionProbe";
 }
 
@@ -2920,7 +2918,7 @@ bool DecalGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<Decal>(p_spatial) != nullptr;
 }
 
-String DecalGizmoPlugin::get_name() const {
+String DecalGizmoPlugin::get_gizmo_name() const {
 	return "Decal";
 }
 
@@ -3061,7 +3059,7 @@ bool GIProbeGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<GIProbe>(p_spatial) != nullptr;
 }
 
-String GIProbeGizmoPlugin::get_name() const {
+String GIProbeGizmoPlugin::get_gizmo_name() const {
 	return "GIProbe";
 }
 
@@ -3256,7 +3254,7 @@ bool BakedLightmapGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<BakedLightmap>(p_spatial) != nullptr;
 }
 
-String BakedLightmapGizmoPlugin::get_name() const {
+String BakedLightmapGizmoPlugin::get_gizmo_name() const {
 	return "BakedLightmap";
 }
 
@@ -3438,7 +3436,7 @@ bool LightmapProbeGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<LightmapProbe>(p_spatial) != nullptr;
 }
 
-String LightmapProbeGizmoPlugin::get_name() const {
+String LightmapProbeGizmoPlugin::get_gizmo_name() const {
 	return "LightmapProbe";
 }
 
@@ -3522,7 +3520,7 @@ bool CollisionShape3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<CollisionShape3D>(p_spatial) != nullptr;
 }
 
-String CollisionShape3DGizmoPlugin::get_name() const {
+String CollisionShape3DGizmoPlugin::get_gizmo_name() const {
 	return "CollisionShape3D";
 }
 
@@ -4122,7 +4120,7 @@ bool CollisionPolygon3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<CollisionPolygon3D>(p_spatial) != nullptr;
 }
 
-String CollisionPolygon3DGizmoPlugin::get_name() const {
+String CollisionPolygon3DGizmoPlugin::get_gizmo_name() const {
 	return "CollisionPolygon3D";
 }
 
@@ -4169,7 +4167,7 @@ bool NavigationRegion3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<NavigationRegion3D>(p_spatial) != nullptr;
 }
 
-String NavigationRegion3DGizmoPlugin::get_name() const {
+String NavigationRegion3DGizmoPlugin::get_gizmo_name() const {
 	return "NavigationRegion3D";
 }
 
@@ -4534,7 +4532,7 @@ bool Joint3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
 	return Object::cast_to<Joint3D>(p_spatial) != nullptr;
 }
 
-String Joint3DGizmoPlugin::get_name() const {
+String Joint3DGizmoPlugin::get_gizmo_name() const {
 	return "Joint3D";
 }
 

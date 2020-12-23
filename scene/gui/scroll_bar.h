@@ -53,15 +53,14 @@ class ScrollBar : public Range {
 
 	struct Drag {
 		bool active = false;
-		float pos_at_click;
-		float value_at_click;
+		float pos_at_click = 0;
+		float value_at_click = 0;
 	} drag;
 
 	double get_grabber_size() const;
 	double get_grabber_min_size() const;
 	double get_area_size() const;
 	double get_area_offset() const;
-	double get_click_pos(const Point2 &p_pos) const;
 	double get_grabber_offset() const;
 
 	static void set_can_focus_by_default(bool p_can_focus);

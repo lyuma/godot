@@ -43,7 +43,6 @@ class VersionControlEditorPlugin : public EditorPlugin {
 
 public:
 	enum ChangeType {
-
 		CHANGE_TYPE_NEW = 0,
 		CHANGE_TYPE_MODIFIED = 1,
 		CHANGE_TYPE_RENAMED = 2,
@@ -111,6 +110,7 @@ private:
 	void _clear_file_diff();
 	void _update_stage_status();
 	void _update_commit_status();
+	void _update_commit_button();
 
 	friend class EditorVCSInterface;
 

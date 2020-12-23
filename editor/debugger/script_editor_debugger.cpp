@@ -30,11 +30,11 @@
 
 #include "script_editor_debugger.h"
 
+#include "core/config/project_settings.h"
 #include "core/debugger/debugger_marshalls.h"
 #include "core/debugger/remote_debugger.h"
 #include "core/io/marshalls.h"
-#include "core/project_settings.h"
-#include "core/ustring.h"
+#include "core/string/ustring.h"
 #include "editor/debugger/editor_network_profiler.h"
 #include "editor/debugger/editor_performance_profiler.h"
 #include "editor/debugger/editor_profiler.h"
@@ -487,8 +487,11 @@ void ScriptEditorDebugger::_parse_message(const String &p_msg, const Array &p_da
 		error->set_text_align(0, TreeItem::ALIGN_LEFT);
 
 		String error_title;
-		// Include method name, when given, in error title.
-		if (!oe.source_func.empty()) {
+		if (oe.callstack.size() > 0) {
+			// If available, use the script's stack in the error title.
+			error_title = oe.callstack[oe.callstack.size() - 1].func + ": ";
+		} else if (!oe.source_func.empty()) {
+			// Otherwise try to use the C++ source function.
 			error_title += oe.source_func + ": ";
 		}
 		// If we have a (custom) error message, use it as title, and add a C++ Error
@@ -529,9 +532,6 @@ void ScriptEditorDebugger::_parse_message(const String &p_msg, const Array &p_da
 			cpp_source->set_metadata(0, source_meta);
 		}
 
-		error->set_tooltip(0, tooltip);
-		error->set_tooltip(1, tooltip);
-
 		// Format stack trace.
 		// stack_items_count is the number of elements to parse, with 3 items per frame
 		// of the stack trace (script, method, line).
@@ -548,9 +548,16 @@ void ScriptEditorDebugger::_parse_message(const String &p_msg, const Array &p_da
 				stack_trace->set_text(0, "<" + TTR("Stack Trace") + ">");
 				stack_trace->set_text_align(0, TreeItem::ALIGN_LEFT);
 				error->set_metadata(0, meta);
+				tooltip += TTR("Stack Trace:") + "\n";
 			}
-			stack_trace->set_text(1, infos[i].file.get_file() + ":" + itos(infos[i].line) + " @ " + infos[i].func + "()");
+
+			String frame_txt = infos[i].file.get_file() + ":" + itos(infos[i].line) + " @ " + infos[i].func + "()";
+			tooltip += frame_txt + "\n";
+			stack_trace->set_text(1, frame_txt);
 		}
+
+		error->set_tooltip(0, tooltip);
+		error->set_tooltip(1, tooltip);
 
 		if (oe.warning) {
 			warning_count++;
@@ -1023,7 +1030,7 @@ void ScriptEditorDebugger::_method_changed(Object *p_base, const StringName &p_n
 
 	for (int i = 0; i < VARIANT_ARG_MAX; i++) {
 		//no pointers, sorry
-		if (argptr[i] && (argptr[i]->get_type() == Variant::OBJECT || argptr[i]->get_type() == Variant::_RID)) {
+		if (argptr[i] && (argptr[i]->get_type() == Variant::OBJECT || argptr[i]->get_type() == Variant::RID)) {
 			return;
 		}
 	}

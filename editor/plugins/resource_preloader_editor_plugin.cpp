@@ -30,8 +30,8 @@
 
 #include "resource_preloader_editor_plugin.h"
 
+#include "core/config/project_settings.h"
 #include "core/io/resource_loader.h"
-#include "core/project_settings.h"
 #include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
 
@@ -62,7 +62,7 @@ void ResourcePreloaderEditor::_files_load_request(const Vector<String> &p_paths)
 			dialog->set_text(TTR("ERROR: Couldn't load resource!"));
 			dialog->set_title(TTR("Error!"));
 			//dialog->get_cancel()->set_text("Close");
-			dialog->get_ok()->set_text(TTR("Close"));
+			dialog->get_ok_button()->set_text(TTR("Close"));
 			dialog->popup_centered();
 			return; ///beh should show an error i guess
 		}
@@ -144,7 +144,7 @@ void ResourcePreloaderEditor::_paste_pressed() {
 	if (!r.is_valid()) {
 		dialog->set_text(TTR("Resource clipboard is empty!"));
 		dialog->set_title(TTR("Error!"));
-		dialog->get_ok()->set_text(TTR("Close"));
+		dialog->get_ok_button()->set_text(TTR("Close"));
 		dialog->popup_centered();
 		return; ///beh should show an error i guess
 	}

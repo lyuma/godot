@@ -37,12 +37,12 @@
 #include <mono/metadata/mono-gc.h>
 #include <mono/metadata/profiler.h>
 
+#include "core/config/project_settings.h"
 #include "core/debugger/engine_debugger.h"
 #include "core/os/dir_access.h"
 #include "core/os/file_access.h"
 #include "core/os/os.h"
 #include "core/os/thread.h"
-#include "core/project_settings.h"
 
 #include "../csharp_script.h"
 #include "../godotsharp_dirs.h"
@@ -201,7 +201,6 @@ MonoDomain *gd_initialize_mono_runtime() {
 	return mono_jit_init_version("GodotEngine.RootDomain", runtime_version);
 }
 #endif
-
 } // namespace
 
 void GDMono::add_mono_shared_libs_dir_to_path() {

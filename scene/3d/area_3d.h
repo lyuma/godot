@@ -31,7 +31,7 @@
 #ifndef AREA_3D_H
 #define AREA_3D_H
 
-#include "core/vset.h"
+#include "core/templates/vset.h"
 #include "scene/3d/collision_object_3d.h"
 
 class Area3D : public CollisionObject3D {
@@ -190,8 +190,8 @@ public:
 	void set_audio_bus_override(bool p_override);
 	bool is_overriding_audio_bus() const;
 
-	void set_audio_bus(const StringName &p_audio_bus);
-	StringName get_audio_bus() const;
+	void set_audio_bus_name(const StringName &p_audio_bus);
+	StringName get_audio_bus_name() const;
 
 	void set_use_reverb_bus(bool p_enable);
 	bool is_using_reverb_bus() const;

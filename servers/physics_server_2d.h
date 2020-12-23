@@ -31,9 +31,9 @@
 #ifndef PHYSICS_2D_SERVER_H
 #define PHYSICS_2D_SERVER_H
 
-#include "core/class_db.h"
-#include "core/reference.h"
-#include "core/resource.h"
+#include "core/io/resource.h"
+#include "core/object/class_db.h"
+#include "core/object/reference.h"
 
 class PhysicsDirectSpaceState2D;
 
@@ -276,7 +276,6 @@ public:
 	virtual bool space_is_active(RID p_space) const = 0;
 
 	enum SpaceParameter {
-
 		SPACE_PARAM_CONTACT_RECYCLE_RADIUS,
 		SPACE_PARAM_CONTACT_MAX_SEPARATION,
 		SPACE_PARAM_BODY_MAX_ALLOWED_PENETRATION,
@@ -526,7 +525,6 @@ public:
 	/* JOINT API */
 
 	enum JointType {
-
 		JOINT_PIN,
 		JOINT_GROOVE,
 		JOINT_DAMPED_SPRING
@@ -587,7 +585,6 @@ public:
 	virtual bool is_flushing_queries() const = 0;
 
 	enum ProcessInfo {
-
 		INFO_ACTIVE_OBJECTS,
 		INFO_COLLISION_PAIRS,
 		INFO_ISLAND_COUNT

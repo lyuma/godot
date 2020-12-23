@@ -31,10 +31,10 @@
 #ifndef DISPLAY_SERVER_H
 #define DISPLAY_SERVER_H
 
-#include "core/callable.h"
 #include "core/input/input.h"
+#include "core/io/resource.h"
 #include "core/os/os.h"
-#include "core/resource.h"
+#include "core/variant/callable.h"
 
 class Texture2D;
 
@@ -83,7 +83,7 @@ protected:
 	static DisplayServerCreate server_create_functions[MAX_SERVERS];
 	static int server_create_count;
 
-	friend class RenderingServerRaster;
+	friend class RenderingServerDefault;
 	virtual void _set_use_vsync(bool p_enable);
 
 public:
@@ -177,7 +177,6 @@ public:
 	}
 	virtual bool screen_is_touchscreen(int p_screen = SCREEN_OF_MAIN_WINDOW) const;
 	enum ScreenOrientation {
-
 		SCREEN_LANDSCAPE,
 		SCREEN_PORTRAIT,
 		SCREEN_REVERSE_LANDSCAPE,

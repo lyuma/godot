@@ -31,9 +31,9 @@
 #ifndef PACKET_PEER_H
 #define PACKET_PEER_H
 
-#include "core/class_db.h"
 #include "core/io/stream_peer.h"
-#include "core/ring_buffer.h"
+#include "core/object/class_db.h"
+#include "core/templates/ring_buffer.h"
 
 class PacketPeer : public Reference {
 	GDCLASS(PacketPeer, Reference);
@@ -86,7 +86,6 @@ class PacketPeerStream : public PacketPeer {
 	Error _poll_buffer() const;
 
 protected:
-	void _set_stream_peer(REF p_peer);
 	static void _bind_methods();
 
 public:

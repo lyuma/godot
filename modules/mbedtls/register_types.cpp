@@ -35,6 +35,10 @@
 #include "packet_peer_mbed_dtls.h"
 #include "stream_peer_mbedtls.h"
 
+#ifdef TESTS_ENABLED
+#include "tests/test_crypto_mbedtls.h"
+#endif
+
 void register_mbedtls_types() {
 	CryptoMbedTLS::initialize_crypto();
 	StreamPeerMbedTLS::initialize_ssl();

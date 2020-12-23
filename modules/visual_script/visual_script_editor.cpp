@@ -30,11 +30,11 @@
 
 #include "visual_script_editor.h"
 
-#include "core/class_db.h"
 #include "core/input/input.h"
+#include "core/object/class_db.h"
+#include "core/object/script_language.h"
 #include "core/os/keyboard.h"
-#include "core/script_language.h"
-#include "core/variant.h"
+#include "core/variant/variant.h"
 #include "editor/editor_node.h"
 #include "editor/editor_resource_preview.h"
 #include "editor/editor_scale.h"
@@ -388,7 +388,7 @@ static Color _color_from_type(Variant::Type p_type, bool dark_theme = true) {
 			case Variant::NODE_PATH:
 				color = Color(0.41, 0.58, 0.93);
 				break;
-			case Variant::_RID:
+			case Variant::RID:
 				color = Color(0.41, 0.93, 0.6);
 				break;
 			case Variant::OBJECT:
@@ -494,7 +494,7 @@ static Color _color_from_type(Variant::Type p_type, bool dark_theme = true) {
 			case Variant::NODE_PATH:
 				color = Color(0.41, 0.58, 0.93);
 				break;
-			case Variant::_RID:
+			case Variant::RID:
 				color = Color(0.17, 0.9, 0.45);
 				break;
 			case Variant::OBJECT:
@@ -719,6 +719,7 @@ void VisualScriptEditor::_update_graph(int p_only_id) {
 				line_edit->set_text(node->get_text());
 				line_edit->set_expand_to_text_length(true);
 				line_edit->add_theme_font_override("font", get_theme_font("source", "EditorFonts"));
+				line_edit->add_theme_font_size_override("font_size", get_theme_font_size("source_size", "EditorFonts"));
 				gnode->add_child(line_edit);
 				line_edit->connect("text_changed", callable_mp(this, &VisualScriptEditor::_expression_text_changed), varray(E->get()));
 			} else {
@@ -885,7 +886,7 @@ void VisualScriptEditor::_update_graph(int p_only_id) {
 							//not the same, reconvert
 							Callable::CallError ce;
 							const Variant *existingp = &value;
-							value = Variant::construct(left_type, &existingp, 1, ce, false);
+							Variant::construct(left_type, value, &existingp, 1, ce);
 						}
 
 						if (left_type == Variant::COLOR) {
@@ -1173,7 +1174,9 @@ String VisualScriptEditor::_sanitized_variant_text(const StringName &property_na
 	if (script->get_variable_info(property_name).type != Variant::NIL) {
 		Callable::CallError ce;
 		const Variant *converted = &var;
-		var = Variant::construct(script->get_variable_info(property_name).type, &converted, 1, ce, false);
+		Variant n;
+		Variant::construct(script->get_variable_info(property_name).type, n, &converted, 1, ce);
+		var = n;
 	}
 
 	return String(var);
@@ -2544,7 +2547,7 @@ void VisualScriptEditor::set_edited_resource(const RES &p_res) {
 	}
 
 	_update_graph();
-	_update_members();
+	call_deferred("_update_members");
 }
 
 void VisualScriptEditor::enable_editor() {
@@ -3959,8 +3962,9 @@ void VisualScriptEditor::_default_value_edited(Node *p_button, int p_id, int p_i
 	Variant existing = vsn->get_default_input_value(p_input_port);
 	if (pinfo.type != Variant::NIL && existing.get_type() != pinfo.type) {
 		Callable::CallError ce;
-		const Variant *existingp = &existing;
-		existing = Variant::construct(pinfo.type, &existingp, 1, ce, false);
+		Variant e = existing;
+		const Variant *existingp = &e;
+		Variant::construct(pinfo.type, existing, &existingp, 1, ce);
 	}
 
 	default_value_edit->set_position(Object::cast_to<Control>(p_button)->get_global_position() + Vector2(0, Object::cast_to<Control>(p_button)->get_size().y));
@@ -4725,6 +4729,7 @@ VisualScriptEditor::VisualScriptEditor() {
 	saved_position = Vector2(0, 0);
 
 	edit_menu = memnew(MenuButton);
+	edit_menu->set_shortcut_context(this);
 	edit_menu->set_text(TTR("Edit"));
 	edit_menu->set_switch_on_hover(true);
 	edit_menu->get_popup()->add_shortcut(ED_GET_SHORTCUT("visual_script_editor/delete_selected"), EDIT_DELETE_NODES);
@@ -4853,8 +4858,8 @@ VisualScriptEditor::VisualScriptEditor() {
 	function_create_dialog = memnew(ConfirmationDialog);
 	function_create_dialog->set_title(TTR("Create Function"));
 	function_create_dialog->add_child(function_vb);
-	function_create_dialog->get_ok()->set_text(TTR("Create"));
-	function_create_dialog->get_ok()->connect("pressed", callable_mp(this, &VisualScriptEditor::_create_function));
+	function_create_dialog->get_ok_button()->set_text(TTR("Create"));
+	function_create_dialog->get_ok_button()->connect("pressed", callable_mp(this, &VisualScriptEditor::_create_function));
 	add_child(function_create_dialog);
 
 	select_func_text = memnew(Label);
@@ -4897,7 +4902,7 @@ VisualScriptEditor::VisualScriptEditor() {
 	graph->connect("connection_to_empty", callable_mp(this, &VisualScriptEditor::_graph_connect_to_empty));
 
 	edit_signal_dialog = memnew(AcceptDialog);
-	edit_signal_dialog->get_ok()->set_text(TTR("Close"));
+	edit_signal_dialog->get_ok_button()->set_text(TTR("Close"));
 	add_child(edit_signal_dialog);
 
 	signal_editor = memnew(VisualScriptEditorSignalEdit);
@@ -4907,7 +4912,7 @@ VisualScriptEditor::VisualScriptEditor() {
 	edit_signal_edit->edit(signal_editor);
 
 	edit_variable_dialog = memnew(AcceptDialog);
-	edit_variable_dialog->get_ok()->set_text(TTR("Close"));
+	edit_variable_dialog->get_ok_button()->set_text(TTR("Close"));
 	add_child(edit_variable_dialog);
 
 	variable_editor = memnew(VisualScriptEditorVariableEdit);
@@ -4926,7 +4931,6 @@ VisualScriptEditor::VisualScriptEditor() {
 	updating_members = false;
 
 	set_process_input(true);
-	set_process_unhandled_input(true);
 
 	default_value_edit = memnew(CustomPropertyEditor);
 	add_child(default_value_edit);
@@ -4940,7 +4944,7 @@ VisualScriptEditor::VisualScriptEditor() {
 	new_connect_node_select = memnew(VisualScriptPropertySelector);
 	add_child(new_connect_node_select);
 	new_connect_node_select->connect("selected", callable_mp(this, &VisualScriptEditor::_selected_connect_node));
-	new_connect_node_select->get_cancel()->connect("pressed", callable_mp(this, &VisualScriptEditor::_cancel_connect_node));
+	new_connect_node_select->get_cancel_button()->connect("pressed", callable_mp(this, &VisualScriptEditor::_cancel_connect_node));
 
 	new_virtual_method_select = memnew(VisualScriptPropertySelector);
 	add_child(new_virtual_method_select);

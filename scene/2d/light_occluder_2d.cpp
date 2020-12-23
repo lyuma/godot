@@ -31,7 +31,7 @@
 #include "light_occluder_2d.h"
 #include "core/math/geometry_2d.h"
 
-#include "core/engine.h"
+#include "core/config/engine.h"
 
 #define LINE_GRAB_WIDTH 8
 
@@ -238,7 +238,7 @@ Ref<OccluderPolygon2D> LightOccluder2D::get_occluder_polygon() const {
 
 void LightOccluder2D::set_occluder_light_mask(int p_mask) {
 	mask = p_mask;
-	RS::get_singleton()->canvas_light_occluder_set_light_mask(occluder, mask);
+	RS::get_singleton()->canvas_light_occluder_set_light_mask(occluder, p_mask);
 }
 
 int LightOccluder2D::get_occluder_light_mask() const {
@@ -265,6 +265,14 @@ String LightOccluder2D::get_configuration_warning() const {
 	return warning;
 }
 
+void LightOccluder2D::set_as_sdf_collision(bool p_enable) {
+	sdf_collision = p_enable;
+	RS::get_singleton()->canvas_light_occluder_set_as_sdf_collision(occluder, sdf_collision);
+}
+bool LightOccluder2D::is_set_as_sdf_collision() const {
+	return sdf_collision;
+}
+
 void LightOccluder2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_occluder_polygon", "polygon"), &LightOccluder2D::set_occluder_polygon);
 	ClassDB::bind_method(D_METHOD("get_occluder_polygon"), &LightOccluder2D::get_occluder_polygon);
@@ -272,14 +280,20 @@ void LightOccluder2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_occluder_light_mask", "mask"), &LightOccluder2D::set_occluder_light_mask);
 	ClassDB::bind_method(D_METHOD("get_occluder_light_mask"), &LightOccluder2D::get_occluder_light_mask);
 
+	ClassDB::bind_method(D_METHOD("set_as_sdf_collision", "enable"), &LightOccluder2D::set_as_sdf_collision);
+	ClassDB::bind_method(D_METHOD("is_set_as_sdf_collision"), &LightOccluder2D::is_set_as_sdf_collision);
+
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "occluder", PROPERTY_HINT_RESOURCE_TYPE, "OccluderPolygon2D"), "set_occluder_polygon", "get_occluder_polygon");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "light_mask", PROPERTY_HINT_LAYERS_2D_RENDER), "set_occluder_light_mask", "get_occluder_light_mask");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "sdf_collision"), "set_as_sdf_collision", "is_set_as_sdf_collision");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "occluder_light_mask", PROPERTY_HINT_LAYERS_2D_RENDER), "set_occluder_light_mask", "get_occluder_light_mask");
 }
 
 LightOccluder2D::LightOccluder2D() {
 	occluder = RS::get_singleton()->canvas_light_occluder_create();
 	mask = 1;
+
 	set_notify_transform(true);
+	set_as_sdf_collision(true);
 }
 
 LightOccluder2D::~LightOccluder2D() {

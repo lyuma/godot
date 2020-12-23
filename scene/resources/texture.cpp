@@ -151,7 +151,7 @@ void ImageTexture::_reload_hook(const RID &p_hook) {
 }
 
 void ImageTexture::create_from_image(const Ref<Image> &p_image) {
-	ERR_FAIL_COND(p_image.is_null());
+	ERR_FAIL_COND_MSG(p_image.is_null(), "Invalid image");
 	w = p_image->get_width();
 	h = p_image->get_height();
 	format = p_image->get_format();
@@ -174,11 +174,14 @@ Image::Format ImageTexture::get_format() const {
 }
 
 void ImageTexture::update(const Ref<Image> &p_image, bool p_immediate) {
-	ERR_FAIL_COND(p_image.is_null());
-	ERR_FAIL_COND(texture.is_null());
-	ERR_FAIL_COND(p_image->get_width() != w || p_image->get_height() != h);
-	ERR_FAIL_COND(p_image->get_format() != format);
-	ERR_FAIL_COND(mipmaps != p_image->has_mipmaps());
+	ERR_FAIL_COND_MSG(p_image.is_null(), "Invalid image");
+	ERR_FAIL_COND_MSG(texture.is_null(), "Texture is not initialized.");
+	ERR_FAIL_COND_MSG(p_image->get_width() != w || p_image->get_height() != h,
+			"The new image dimensions must match the texture size.");
+	ERR_FAIL_COND_MSG(p_image->get_format() != format,
+			"The new image format must match the texture's image format.");
+	ERR_FAIL_COND_MSG(mipmaps != p_image->has_mipmaps(),
+			"The new image mipmaps configuration must match the texture's image mipmaps configuration");
 
 	if (p_immediate) {
 		RenderingServer::get_singleton()->texture_2d_update_immediate(texture, p_image);
@@ -498,7 +501,7 @@ Error StreamTexture2D::_load_data(const String &p_path, int &tw, int &th, int &t
 	ERR_FAIL_COND_V(image.is_null(), ERR_INVALID_PARAMETER);
 
 	FileAccess *f = FileAccess::open(p_path, FileAccess::READ);
-	ERR_FAIL_COND_V(!f, ERR_CANT_OPEN);
+	ERR_FAIL_COND_V_MSG(!f, ERR_CANT_OPEN, vformat("Unable to open file: %s.", p_path));
 
 	uint8_t header[4];
 	f->get_buffer(header, 4);
@@ -893,7 +896,7 @@ Image::Format StreamTexture3D::get_format() const {
 
 Error StreamTexture3D::_load_data(const String &p_path, Vector<Ref<Image>> &r_data, Image::Format &r_format, int &r_width, int &r_height, int &r_depth, bool &r_mipmaps) {
 	FileAccessRef f = FileAccess::open(p_path, FileAccess::READ);
-	ERR_FAIL_COND_V(!f, ERR_CANT_OPEN);
+	ERR_FAIL_COND_V_MSG(!f, ERR_CANT_OPEN, vformat("Unable to open file: %s.", p_path));
 
 	uint8_t header[4];
 	f->get_buffer(header, 4);
@@ -1250,7 +1253,7 @@ bool AtlasTexture::get_rect_region(const Rect2 &p_rect, const Rect2 &p_src_rect,
 	Vector2 scale = p_rect.size / src.size;
 
 	src.position += (rc.position - margin.position);
-	Rect2 src_c = rc.clip(src);
+	Rect2 src_c = rc.intersection(src);
 	if (src_c.size == Size2()) {
 		return false;
 	}
@@ -1572,7 +1575,7 @@ void LargeTexture::draw_rect_region(RID p_canvas_item, const Rect2 &p_rect, cons
 		if (!p_src_rect.intersects(rect)) {
 			continue;
 		}
-		Rect2 local = p_src_rect.clip(rect);
+		Rect2 local = p_src_rect.intersection(rect);
 		Rect2 target = local;
 		target.size *= scale;
 		target.position = p_rect.position + (p_src_rect.position + rect.position) * scale;
@@ -2325,7 +2328,7 @@ Error StreamTextureLayered::_load_data(const String &p_path, Vector<Ref<Image>> 
 	ERR_FAIL_COND_V(images.size() != 0, ERR_INVALID_PARAMETER);
 
 	FileAccessRef f = FileAccess::open(p_path, FileAccess::READ);
-	ERR_FAIL_COND_V(!f, ERR_CANT_OPEN);
+	ERR_FAIL_COND_V_MSG(!f, ERR_CANT_OPEN, vformat("Unable to open file: %s.", p_path));
 
 	uint8_t header[4];
 	f->get_buffer(header, 4);

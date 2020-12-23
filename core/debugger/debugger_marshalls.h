@@ -31,7 +31,7 @@
 #ifndef DEBUGGER_MARSHARLLS_H
 #define DEBUGGER_MARSHARLLS_H
 
-#include "core/script_language.h"
+#include "core/object/script_language.h"
 #include "servers/rendering_server.h"
 
 struct DebuggerMarshalls {
@@ -148,7 +148,7 @@ struct DebuggerMarshalls {
 
 	// Visual Profiler
 	struct VisualProfilerFrame {
-		uint64_t frame_number;
+		uint64_t frame_number = 0;
 		Vector<RS::FrameProfileArea> areas;
 
 		Array serialize();

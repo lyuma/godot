@@ -31,7 +31,7 @@
 #include "display_server_android.h"
 
 #include "android_keys_utils.h"
-#include "core/project_settings.h"
+#include "core/config/project_settings.h"
 #include "java_godot_io_wrapper.h"
 #include "java_godot_wrapper.h"
 #include "os_android.h"
@@ -41,7 +41,7 @@
 #if defined(VULKAN_ENABLED)
 #include "drivers/vulkan/rendering_device_vulkan.h"
 #include "platform/android/vulkan/vulkan_context_android.h"
-#include "servers/rendering/rasterizer_rd/rasterizer_rd.h"
+#include "servers/rendering/renderer_rd/renderer_compositor_rd.h"
 #endif
 
 DisplayServerAndroid *DisplayServerAndroid::get_singleton() {
@@ -447,7 +447,7 @@ DisplayServerAndroid::DisplayServerAndroid(const String &p_rendering_driver, Dis
 		rendering_device_vulkan = memnew(RenderingDeviceVulkan);
 		rendering_device_vulkan->initialize(context_vulkan);
 
-		RasterizerRD::make_current();
+		RendererCompositorRD::make_current();
 	}
 #endif
 
@@ -498,9 +498,28 @@ void DisplayServerAndroid::_set_key_modifier_state(Ref<InputEventWithModifiers> 
 }
 
 void DisplayServerAndroid::process_key_event(int p_keycode, int p_scancode, int p_unicode_char, bool p_pressed) {
+	static char32_t prev_wc = 0;
+	char32_t unicode = p_unicode_char;
+	if ((p_unicode_char & 0xfffffc00) == 0xd800) {
+		if (prev_wc != 0) {
+			ERR_PRINT("invalid utf16 surrogate input");
+		}
+		prev_wc = unicode;
+		return; // Skip surrogate.
+	} else if ((unicode & 0xfffffc00) == 0xdc00) {
+		if (prev_wc == 0) {
+			ERR_PRINT("invalid utf16 surrogate input");
+			return; // Skip invalid surrogate.
+		}
+		unicode = (prev_wc << 10UL) + unicode - ((0xd800 << 10UL) + 0xdc00 - 0x10000);
+		prev_wc = 0;
+	} else {
+		prev_wc = 0;
+	}
+
 	Ref<InputEventKey> ev;
 	ev.instance();
-	int val = p_unicode_char;
+	int val = unicode;
 	int keycode = android_get_keysym(p_keycode);
 	int phy_keycode = android_get_keysym(p_scancode);
 
@@ -667,7 +686,7 @@ void DisplayServerAndroid::process_hover(int p_type, Point2 p_pos) {
 	}
 }
 
-void DisplayServerAndroid::process_mouse_event(int event_action, int event_android_buttons_mask, Point2 event_pos, float event_vertical_factor, float event_horizontal_factor) {
+void DisplayServerAndroid::process_mouse_event(int input_device, int event_action, int event_android_buttons_mask, Point2 event_pos, float event_vertical_factor, float event_horizontal_factor) {
 	int event_buttons_mask = _android_button_mask_to_godot_button_mask(event_android_buttons_mask);
 	switch (event_action) {
 		case AMOTION_EVENT_ACTION_BUTTON_PRESS:
@@ -675,8 +694,13 @@ void DisplayServerAndroid::process_mouse_event(int event_action, int event_andro
 			Ref<InputEventMouseButton> ev;
 			ev.instance();
 			_set_key_modifier_state(ev);
-			ev->set_position(event_pos);
-			ev->set_global_position(event_pos);
+			if ((input_device & AINPUT_SOURCE_MOUSE) == AINPUT_SOURCE_MOUSE) {
+				ev->set_position(event_pos);
+				ev->set_global_position(event_pos);
+			} else {
+				ev->set_position(hover_prev_pos);
+				ev->set_global_position(hover_prev_pos);
+			}
 			ev->set_pressed(event_action == AMOTION_EVENT_ACTION_BUTTON_PRESS);
 			int changed_button_mask = buttons_state ^ event_buttons_mask;
 
@@ -691,18 +715,29 @@ void DisplayServerAndroid::process_mouse_event(int event_action, int event_andro
 			Ref<InputEventMouseMotion> ev;
 			ev.instance();
 			_set_key_modifier_state(ev);
-			ev->set_position(event_pos);
-			ev->set_global_position(event_pos);
-			ev->set_relative(event_pos - hover_prev_pos);
+			if ((input_device & AINPUT_SOURCE_MOUSE) == AINPUT_SOURCE_MOUSE) {
+				ev->set_position(event_pos);
+				ev->set_global_position(event_pos);
+				ev->set_relative(event_pos - hover_prev_pos);
+				hover_prev_pos = event_pos;
+			} else {
+				ev->set_position(hover_prev_pos);
+				ev->set_global_position(hover_prev_pos);
+				ev->set_relative(event_pos);
+			}
 			ev->set_button_mask(event_buttons_mask);
 			Input::get_singleton()->accumulate_input_event(ev);
-			hover_prev_pos = event_pos;
 		} break;
 		case AMOTION_EVENT_ACTION_SCROLL: {
 			Ref<InputEventMouseButton> ev;
 			ev.instance();
-			ev->set_position(event_pos);
-			ev->set_global_position(event_pos);
+			if ((input_device & AINPUT_SOURCE_MOUSE) == AINPUT_SOURCE_MOUSE) {
+				ev->set_position(event_pos);
+				ev->set_global_position(event_pos);
+			} else {
+				ev->set_position(hover_prev_pos);
+				ev->set_global_position(hover_prev_pos);
+			}
 			ev->set_pressed(true);
 			buttons_state = event_buttons_mask;
 			if (event_vertical_factor > 0) {
@@ -788,6 +823,24 @@ void DisplayServerAndroid::process_magnetometer(const Vector3 &p_magnetometer) {
 
 void DisplayServerAndroid::process_gyroscope(const Vector3 &p_gyroscope) {
 	Input::get_singleton()->set_gyroscope(p_gyroscope);
+}
+
+void DisplayServerAndroid::mouse_set_mode(MouseMode p_mode) {
+	if (mouse_mode == p_mode) {
+		return;
+	}
+
+	if (p_mode == MouseMode::MOUSE_MODE_CAPTURED) {
+		OS_Android::get_singleton()->get_godot_java()->get_godot_view()->request_pointer_capture();
+	} else {
+		OS_Android::get_singleton()->get_godot_java()->get_godot_view()->release_pointer_capture();
+	}
+
+	mouse_mode = p_mode;
+}
+
+DisplayServer::MouseMode DisplayServerAndroid::mouse_get_mode() const {
+	return mouse_mode;
 }
 
 Point2i DisplayServerAndroid::mouse_get_position() const {

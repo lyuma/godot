@@ -31,7 +31,7 @@
 #ifndef PHYSICS_BODY_3D_H
 #define PHYSICS_BODY_3D_H
 
-#include "core/vset.h"
+#include "core/templates/vset.h"
 #include "scene/3d/collision_object_3d.h"
 #include "scene/resources/physics_material.h"
 #include "servers/physics_server_3d.h"
@@ -184,9 +184,6 @@ public:
 	real_t get_mass() const;
 
 	virtual float get_inverse_mass() const override { return 1.0 / mass; }
-
-	void set_weight(real_t p_weight);
-	real_t get_weight() const;
 
 	void set_physics_material_override(const Ref<PhysicsMaterial> &p_physics_material_override);
 	Ref<PhysicsMaterial> get_physics_material_override() const;
@@ -571,9 +568,6 @@ public:
 
 	void set_mass(real_t p_mass);
 	real_t get_mass() const;
-
-	void set_weight(real_t p_weight);
-	real_t get_weight() const;
 
 	void set_friction(real_t p_friction);
 	real_t get_friction() const;

@@ -30,10 +30,10 @@
 
 #include "test_physics_2d.h"
 
-#include "core/map.h"
 #include "core/os/main_loop.h"
 #include "core/os/os.h"
-#include "core/print_string.h"
+#include "core/string/print_string.h"
+#include "core/templates/map.h"
 #include "scene/resources/texture.h"
 #include "servers/display_server.h"
 #include "servers/physics_server_2d.h"
@@ -403,5 +403,4 @@ namespace TestPhysics2D {
 MainLoop *test() {
 	return memnew(TestPhysics2DMainLoop);
 }
-
 } // namespace TestPhysics2D

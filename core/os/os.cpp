@@ -30,11 +30,11 @@
 
 #include "os.h"
 
+#include "core/config/project_settings.h"
 #include "core/input/input.h"
 #include "core/os/dir_access.h"
 #include "core/os/file_access.h"
 #include "core/os/midi_driver.h"
-#include "core/project_settings.h"
 #include "core/version_generated.gen.h"
 #include "servers/audio_server.h"
 
@@ -505,11 +505,7 @@ void OS::add_frame_delay(bool p_can_draw) {
 }
 
 OS::OS() {
-	void *volatile stack_bottom;
-
 	singleton = this;
-
-	_stack_bottom = (void *)(&stack_bottom);
 
 	Vector<Logger *> loggers;
 	loggers.push_back(memnew(StdLogger));

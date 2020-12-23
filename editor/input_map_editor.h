@@ -31,7 +31,7 @@
 #ifndef INPUT_MAP_EDITOR_H
 #define INPUT_MAP_EDITOR_H
 
-#include "core/undo_redo.h"
+#include "core/object/undo_redo.h"
 #include "editor/editor_data.h"
 
 class InputMapEditor : public Control {
@@ -87,6 +87,8 @@ class InputMapEditor : public Control {
 	void _wait_for_key(const Ref<InputEvent> &p_event);
 	void _press_a_key_confirm();
 	void _show_last_added(const Ref<InputEvent> &p_event, const String &p_name);
+
+	String _get_joypad_motion_event_text(const Ref<InputEventJoypadMotion> &p_event);
 
 	Variant get_drag_data_fw(const Point2 &p_point, Control *p_from);
 	bool can_drop_data_fw(const Point2 &p_point, const Variant &p_data, Control *p_from) const;

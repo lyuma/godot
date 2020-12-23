@@ -32,7 +32,7 @@
 #define AES_CONTEXT_H
 
 #include "core/crypto/crypto_core.h"
-#include "core/reference.h"
+#include "core/object/reference.h"
 
 class AESContext : public Reference {
 	GDCLASS(AESContext, Reference);
@@ -47,7 +47,7 @@ public:
 	};
 
 private:
-	Mode mode;
+	Mode mode = MODE_MAX;
 	CryptoCore::AESContext ctx;
 	PackedByteArray iv;
 

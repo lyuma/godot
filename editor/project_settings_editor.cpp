@@ -30,7 +30,7 @@
 
 #include "project_settings_editor.h"
 
-#include "core/project_settings.h"
+#include "core/config/project_settings.h"
 #include "editor/editor_export.h"
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
@@ -98,7 +98,8 @@ void ProjectSettingsEditor::_add_setting() {
 	// Initialize the property with the default value for the given type.
 	// The type list starts at 1 (as we exclude Nil), so add 1 to the selected value.
 	Callable::CallError ce;
-	const Variant value = Variant::construct(Variant::Type(type->get_selected() + 1), nullptr, 0, ce);
+	Variant value;
+	Variant::construct(Variant::Type(type->get_selected() + 1), value, nullptr, 0, ce);
 
 	undo_redo->create_action(TTR("Add Project Setting"));
 	undo_redo->add_do_property(ps, setting, value);
@@ -477,6 +478,6 @@ ProjectSettingsEditor::ProjectSettingsEditor(EditorData *p_data) {
 	del_confirmation->connect("confirmed", callable_mp(this, &ProjectSettingsEditor::_delete_setting), varray(true));
 	add_child(del_confirmation);
 
-	get_ok()->set_text(TTR("Close"));
+	get_ok_button()->set_text(TTR("Close"));
 	set_hide_on_ok(true);
 }

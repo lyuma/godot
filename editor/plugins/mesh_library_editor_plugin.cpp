@@ -267,7 +267,7 @@ MeshLibraryEditor::MeshLibraryEditor(EditorNode *p_editor) {
 	editor = p_editor;
 	cd = memnew(ConfirmationDialog);
 	add_child(cd);
-	cd->get_ok()->connect("pressed", callable_mp(this, &MeshLibraryEditor::_menu_confirm));
+	cd->get_ok_button()->connect("pressed", callable_mp(this, &MeshLibraryEditor::_menu_confirm));
 }
 
 void MeshLibraryEditorPlugin::edit(Object *p_node) {
@@ -301,4 +301,6 @@ MeshLibraryEditorPlugin::MeshLibraryEditorPlugin(EditorNode *p_node) {
 	mesh_library_editor->set_anchors_and_margins_preset(Control::PRESET_TOP_WIDE);
 	mesh_library_editor->set_end(Point2(0, 22));
 	mesh_library_editor->hide();
+
+	editor = nullptr;
 }

@@ -31,7 +31,7 @@
 #ifndef VISUAL_SHADER_H
 #define VISUAL_SHADER_H
 
-#include "core/string_builder.h"
+#include "core/string/string_builder.h"
 #include "scene/gui/control.h"
 #include "scene/resources/shader.h"
 
@@ -175,7 +175,7 @@ public:
 
 	String generate_preview_shader(Type p_type, int p_node, int p_port, Vector<DefaultTextureParam> &r_default_tex_params) const;
 
-	String validate_port_name(const String &p_name, const List<String> &p_input_ports, const List<String> &p_output_ports) const;
+	String validate_port_name(const String &p_port_name, VisualShaderNode *p_node, int p_port_id, bool p_output) const;
 	String validate_uniform_name(const String &p_name, const Ref<VisualShaderNodeUniform> &p_uniform) const;
 
 	VisualShader();

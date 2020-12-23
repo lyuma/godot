@@ -105,6 +105,8 @@ class AnimationPlayerEditor : public VBoxContainer {
 	Label *name_title;
 	UndoRedo *undo_redo;
 	Ref<Texture2D> autoplay_icon;
+	Ref<Texture2D> reset_icon;
+	Ref<ImageTexture> autoplay_reset_icon;
 	bool last_active;
 	float timeline_position;
 
@@ -113,9 +115,9 @@ class AnimationPlayerEditor : public VBoxContainer {
 	int current_option;
 
 	struct BlendEditor {
-		AcceptDialog *dialog;
-		Tree *tree;
-		OptionButton *next;
+		AcceptDialog *dialog = nullptr;
+		Tree *tree = nullptr;
+		OptionButton *next = nullptr;
 
 	} blend_editor;
 
@@ -131,13 +133,13 @@ class AnimationPlayerEditor : public VBoxContainer {
 	// Onion skinning.
 	struct {
 		// Settings.
-		bool enabled;
-		bool past;
-		bool future;
-		int steps;
-		bool differences_only;
-		bool force_white_modulate;
-		bool include_gizmos;
+		bool enabled = false;
+		bool past = false;
+		bool future = false;
+		int steps = 0;
+		bool differences_only = false;
+		bool force_white_modulate = false;
+		bool include_gizmos = false;
 
 		int get_needed_capture_count() const {
 			// 'Differences only' needs a capture of the present.
@@ -145,8 +147,8 @@ class AnimationPlayerEditor : public VBoxContainer {
 		}
 
 		// Rendering.
-		int64_t last_frame;
-		int can_overlay;
+		int64_t last_frame = 0;
+		int can_overlay = 0;
 		Size2 capture_size;
 		Vector<RID> captures;
 		Vector<bool> captures_valid;

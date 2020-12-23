@@ -30,26 +30,40 @@
 
 #include "test_main.h"
 
-#include "core/list.h"
+#include "core/templates/list.h"
 
+#include "test_aabb.h"
 #include "test_astar.h"
 #include "test_basis.h"
 #include "test_class_db.h"
 #include "test_color.h"
 #include "test_command_queue.h"
+#include "test_config_file.h"
+#include "test_crypto.h"
+#include "test_curve.h"
 #include "test_expression.h"
+#include "test_file_access.h"
 #include "test_gradient.h"
 #include "test_gui.h"
+#include "test_json.h"
 #include "test_list.h"
+#include "test_lru.h"
 #include "test_math.h"
 #include "test_method_bind.h"
+#include "test_node_path.h"
 #include "test_oa_hash_map.h"
+#include "test_object.h"
 #include "test_ordered_hash_map.h"
+#include "test_paged_array.h"
+#include "test_pck_packer.h"
 #include "test_physics_2d.h"
 #include "test_physics_3d.h"
+#include "test_random_number_generator.h"
+#include "test_rect2.h"
 #include "test_render.h"
 #include "test_shader_lang.h"
 #include "test_string.h"
+#include "test_text_server.h"
 #include "test_validate_testing.h"
 #include "test_variant.h"
 
@@ -107,10 +121,6 @@ int test_main(int argc, char *argv[]) {
 	}
 
 	test_context.applyCommandLine(test_args.size(), doctest_args);
-
-	test_context.setOption("order-by", "name");
-	test_context.setOption("abort-after", 5);
-	test_context.setOption("no-breaks", true);
 
 	for (int x = 0; x < test_args.size(); x++) {
 		delete[] doctest_args[x];

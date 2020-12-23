@@ -31,10 +31,10 @@
 #ifndef TEST_ORDERED_HASH_MAP_H
 #define TEST_ORDERED_HASH_MAP_H
 
-#include "core/ordered_hash_map.h"
 #include "core/os/os.h"
-#include "core/pair.h"
-#include "core/vector.h"
+#include "core/templates/ordered_hash_map.h"
+#include "core/templates/pair.h"
+#include "core/templates/vector.h"
 
 #include "tests/test_macros.h"
 
@@ -133,7 +133,6 @@ TEST_CASE("[OrderedHashMap] Const iteration") {
 		++idx;
 	}
 }
-
 } // namespace TestOrderedHashMap
 
 #endif // TEST_ORDERED_HASH_MAP_H

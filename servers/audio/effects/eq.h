@@ -33,8 +33,8 @@
 #ifndef EQ_FILTER_H
 #define EQ_FILTER_H
 
+#include "core/templates/vector.h"
 #include "core/typedefs.h"
-#include "core/vector.h"
 
 /**
 @author Juan Linietsky
@@ -43,7 +43,6 @@
 class EQ {
 public:
 	enum Preset {
-
 		PRESET_6_BANDS,
 		PRESET_8_BANDS,
 		PRESET_10_BANDS,

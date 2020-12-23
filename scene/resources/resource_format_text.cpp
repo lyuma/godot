@@ -30,9 +30,9 @@
 
 #include "resource_format_text.h"
 
+#include "core/config/project_settings.h"
 #include "core/io/resource_format_binary.h"
 #include "core/os/dir_access.h"
-#include "core/project_settings.h"
 #include "core/version.h"
 
 //version 2: changed names for basis, aabb, Vectors, etc.
@@ -704,7 +704,6 @@ ResourceLoaderText::ResourceLoaderText() {
 
 	resources_total = 0;
 	resource_current = 0;
-	use_sub_threads = false;
 
 	progress = nullptr;
 	lines = false;
@@ -838,6 +837,11 @@ Error ResourceLoaderText::rename_dependencies(FileAccess *p_f, const String &p_p
 	f->seek(tag_end);
 
 	uint8_t c = f->get_8();
+	if (c == '\n' && !f->eof_reached()) {
+		// Skip first newline character since we added one
+		c = f->get_8();
+	}
+
 	while (!f->eof_reached()) {
 		fw->store_8(c);
 		c = f->get_8();

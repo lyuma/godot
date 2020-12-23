@@ -30,11 +30,13 @@
 
 #include "viewport.h"
 
+#include "core/config/project_settings.h"
 #include "core/core_string_names.h"
 #include "core/debugger/engine_debugger.h"
 #include "core/input/input.h"
 #include "core/os/os.h"
-#include "core/project_settings.h"
+#include "core/string/translation.h"
+
 #include "scene/2d/collision_object_2d.h"
 #include "scene/3d/camera_3d.h"
 #include "scene/3d/collision_object_3d.h"
@@ -285,16 +287,19 @@ void Viewport::_sub_window_update(Window *p_window) {
 
 		// Draw the title bar text.
 		Ref<Font> title_font = p_window->get_theme_font("title_font");
+		int font_size = p_window->get_theme_font_size("title_font_size");
 		Color title_color = p_window->get_theme_color("title_color");
 		int title_height = p_window->get_theme_constant("title_height");
-		int font_height = title_font->get_height() - title_font->get_descent() * 2;
-		int x = (r.size.width - title_font->get_string_size(p_window->get_title()).x) / 2;
-		int y = (-title_height + font_height) / 2;
-
 		int close_h_ofs = p_window->get_theme_constant("close_h_ofs");
 		int close_v_ofs = p_window->get_theme_constant("close_v_ofs");
 
-		title_font->draw(sw.canvas_item, r.position + Point2(x, y), p_window->get_title(), title_color, r.size.width - panel->get_minimum_size().x - close_h_ofs);
+		TextLine title_text = TextLine(p_window->get_title(), title_font, font_size, Dictionary(), TranslationServer::get_singleton()->get_tool_locale());
+		title_text.set_width(r.size.width - panel->get_minimum_size().x - close_h_ofs);
+		title_text.set_direction(p_window->is_layout_rtl() ? TextServer::DIRECTION_RTL : TextServer::DIRECTION_LTR);
+		int x = (r.size.width - title_text.get_size().x) / 2;
+		int y = (-title_height - title_text.get_size().y) / 2;
+
+		title_text.draw(sw.canvas_item, r.position + Point2(x, y), title_color);
 
 		bool hl = gui.subwindow_focused == sw.window && gui.subwindow_drag == SUB_WINDOW_DRAG_CLOSE && gui.subwindow_drag_close_inside;
 
@@ -1804,15 +1809,7 @@ bool Viewport::_gui_drop(Control *p_at_control, Point2 p_at_pos, bool p_just_che
 void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 	ERR_FAIL_COND(p_event.is_null());
 
-	//?
-	/*
-	if (!is_visible()) {
-		return; //simple and plain
-	}
-	*/
-
 	Ref<InputEventMouseButton> mb = p_event;
-
 	if (mb.is_valid()) {
 		gui.key_event_accepted = false;
 
@@ -2000,7 +1997,6 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 	}
 
 	Ref<InputEventMouseMotion> mm = p_event;
-
 	if (mm.is_valid()) {
 		gui.key_event_accepted = false;
 		Point2 mpos = mm->get_position();
@@ -2378,7 +2374,6 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 
 		//keyboard focus
 		//if (from && p_event->is_pressed() && !p_event->get_alt() && !p_event->get_metakey() && !p_event->key->get_command()) {
-
 		Ref<InputEventKey> k = p_event;
 		//need to check for mods, otherwise any combination of alt/ctrl/shift+<up/down/left/righ/etc> is handled here when it shouldn't be.
 		bool mods = k.is_valid() && (k->get_control() || k->get_alt() || k->get_shift() || k->get_metakey());
@@ -2397,19 +2392,19 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 			}
 
 			if (!mods && p_event->is_action_pressed("ui_up") && input->is_action_just_pressed("ui_up")) {
-				next = from->_get_focus_neighbour(MARGIN_TOP);
+				next = from->_get_focus_neighbor(MARGIN_TOP);
 			}
 
 			if (!mods && p_event->is_action_pressed("ui_left") && input->is_action_just_pressed("ui_left")) {
-				next = from->_get_focus_neighbour(MARGIN_LEFT);
+				next = from->_get_focus_neighbor(MARGIN_LEFT);
 			}
 
 			if (!mods && p_event->is_action_pressed("ui_right") && input->is_action_just_pressed("ui_right")) {
-				next = from->_get_focus_neighbour(MARGIN_RIGHT);
+				next = from->_get_focus_neighbor(MARGIN_RIGHT);
 			}
 
 			if (!mods && p_event->is_action_pressed("ui_down") && input->is_action_just_pressed("ui_down")) {
-				next = from->_get_focus_neighbour(MARGIN_BOTTOM);
+				next = from->_get_focus_neighbor(MARGIN_BOTTOM);
 			}
 
 			if (next) {
@@ -3044,7 +3039,10 @@ void Viewport::unhandled_input(const Ref<InputEvent> &p_event, bool p_local_coor
 		ev = p_event;
 	}
 
+	// Unhandled Input
 	get_tree()->_call_input_pause(unhandled_input_group, "_unhandled_input", ev, this);
+
+	// Unhandled key Input - used for performance reasons - This is called a lot less then _unhandled_input since it ignores MouseMotion, etc
 	if (!is_input_handled() && Object::cast_to<InputEventKey>(*ev) != nullptr) {
 		get_tree()->_call_input_pause(unhandled_key_input_group, "_unhandled_key_input", ev, this);
 	}
@@ -3135,7 +3133,6 @@ Variant Viewport::gui_get_drag_data() const {
 
 String Viewport::get_configuration_warning() const {
 	/*if (get_parent() && !Object::cast_to<Control>(get_parent()) && !render_target) {
-
 		return TTR("This viewport is not set as render target. If you intend for it to display its contents directly to the screen, make it a child of a Control so it can obtain a size. Otherwise, make it a RenderTarget and assign its internal texture to some node for display.");
 	}*/
 
@@ -3193,6 +3190,14 @@ void Viewport::set_use_debanding(bool p_use_debanding) {
 
 bool Viewport::is_using_debanding() const {
 	return use_debanding;
+}
+
+void Viewport::set_lod_threshold(float p_pixels) {
+	lod_threshold = p_pixels;
+	RS::get_singleton()->viewport_set_lod_threshold(viewport, lod_threshold);
+}
+float Viewport::get_lod_threshold() const {
+	return lod_threshold;
 }
 
 void Viewport::set_debug_draw(DebugDraw p_debug_draw) {
@@ -3385,6 +3390,24 @@ void Viewport::pass_mouse_focus_to(Viewport *p_viewport, Control *p_control) {
 	}
 }
 
+void Viewport::set_sdf_oversize(SDFOversize p_sdf_oversize) {
+	ERR_FAIL_INDEX(p_sdf_oversize, SDF_OVERSIZE_MAX);
+	sdf_oversize = p_sdf_oversize;
+	RS::get_singleton()->viewport_set_sdf_oversize_and_scale(viewport, RS::ViewportSDFOversize(sdf_oversize), RS::ViewportSDFScale(sdf_scale));
+}
+Viewport::SDFOversize Viewport::get_sdf_oversize() const {
+	return sdf_oversize;
+}
+
+void Viewport::set_sdf_scale(SDFScale p_sdf_scale) {
+	ERR_FAIL_INDEX(p_sdf_scale, SDF_SCALE_MAX);
+	sdf_scale = p_sdf_scale;
+	RS::get_singleton()->viewport_set_sdf_oversize_and_scale(viewport, RS::ViewportSDFOversize(sdf_oversize), RS::ViewportSDFScale(sdf_scale));
+}
+Viewport::SDFScale Viewport::get_sdf_scale() const {
+	return sdf_scale;
+}
+
 void Viewport::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_world_2d", "world_2d"), &Viewport::set_world_2d);
 	ClassDB::bind_method(D_METHOD("get_world_2d"), &Viewport::get_world_2d);
@@ -3484,6 +3507,15 @@ void Viewport::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_default_canvas_item_texture_repeat", "mode"), &Viewport::set_default_canvas_item_texture_repeat);
 	ClassDB::bind_method(D_METHOD("get_default_canvas_item_texture_repeat"), &Viewport::get_default_canvas_item_texture_repeat);
 
+	ClassDB::bind_method(D_METHOD("set_sdf_oversize", "oversize"), &Viewport::set_sdf_oversize);
+	ClassDB::bind_method(D_METHOD("get_sdf_oversize"), &Viewport::get_sdf_oversize);
+
+	ClassDB::bind_method(D_METHOD("set_sdf_scale", "scale"), &Viewport::set_sdf_scale);
+	ClassDB::bind_method(D_METHOD("get_sdf_scale"), &Viewport::get_sdf_scale);
+
+	ClassDB::bind_method(D_METHOD("set_lod_threshold", "pixels"), &Viewport::set_lod_threshold);
+	ClassDB::bind_method(D_METHOD("get_lod_threshold"), &Viewport::get_lod_threshold);
+
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "own_world_3d"), "set_use_own_world_3d", "is_using_own_world_3d");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "world_3d", PROPERTY_HINT_RESOURCE_TYPE, "World3D"), "set_world_3d", "get_world_3d");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "world_2d", PROPERTY_HINT_RESOURCE_TYPE, "World2D", 0), "set_world_2d", "get_world_2d");
@@ -3495,6 +3527,7 @@ void Viewport::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "msaa", PROPERTY_HINT_ENUM, "Disabled,2x,4x,8x,16x,AndroidVR 2x,AndroidVR 4x"), "set_msaa", "get_msaa");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "screen_space_aa", PROPERTY_HINT_ENUM, "Disabled,FXAA"), "set_screen_space_aa", "get_screen_space_aa");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_debanding"), "set_use_debanding", "is_using_debanding");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "lod_threshold", PROPERTY_HINT_RANGE, "0,1024,0.1"), "set_lod_threshold", "get_lod_threshold");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_draw", PROPERTY_HINT_ENUM, "Disabled,Unshaded,Overdraw,Wireframe"), "set_debug_draw", "get_debug_draw");
 	ADD_GROUP("Canvas Items", "canvas_item_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "canvas_item_default_texture_filter", PROPERTY_HINT_ENUM, "Nearest,Linear,MipmapLinear,MipmapNearest"), "set_default_canvas_item_texture_filter", "get_default_canvas_item_texture_filter");
@@ -3508,6 +3541,9 @@ void Viewport::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "gui_disable_input"), "set_disable_input", "is_input_disabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "gui_snap_controls_to_pixels"), "set_snap_controls_to_pixels", "is_snap_controls_to_pixels_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "gui_embed_subwindows"), "set_embed_subwindows_hint", "get_embed_subwindows_hint");
+	ADD_GROUP("SDF", "sdf_");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "sdf_oversize", PROPERTY_HINT_ENUM, "100%,120%,150%,200%"), "set_sdf_oversize", "get_sdf_oversize");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "sdf_scale", PROPERTY_HINT_ENUM, "100%,50%,25%"), "set_sdf_scale", "get_sdf_scale");
 	ADD_GROUP("Shadow Atlas", "shadow_atlas_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "shadow_atlas_size"), "set_shadow_atlas_size", "get_shadow_atlas_size");
 	ADD_PROPERTYI(PropertyInfo(Variant::INT, "shadow_atlas_quad_0", PROPERTY_HINT_ENUM, "Disabled,1 Shadow,4 Shadows,16 Shadows,64 Shadows,256 Shadows,1024 Shadows"), "set_shadow_atlas_quadrant_subdiv", "get_shadow_atlas_quadrant_subdiv", 0);
@@ -3566,6 +3602,7 @@ void Viewport::_bind_methods() {
 	BIND_ENUM_CONSTANT(DEBUG_DRAW_SDFGI);
 	BIND_ENUM_CONSTANT(DEBUG_DRAW_SDFGI_PROBES);
 	BIND_ENUM_CONSTANT(DEBUG_DRAW_GI_BUFFER);
+	BIND_ENUM_CONSTANT(DEBUG_DRAW_DISABLE_LOD);
 
 	BIND_ENUM_CONSTANT(DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST);
 	BIND_ENUM_CONSTANT(DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_LINEAR);
@@ -3577,6 +3614,17 @@ void Viewport::_bind_methods() {
 	BIND_ENUM_CONSTANT(DEFAULT_CANVAS_ITEM_TEXTURE_REPEAT_ENABLED);
 	BIND_ENUM_CONSTANT(DEFAULT_CANVAS_ITEM_TEXTURE_REPEAT_MIRROR);
 	BIND_ENUM_CONSTANT(DEFAULT_CANVAS_ITEM_TEXTURE_REPEAT_MAX);
+
+	BIND_ENUM_CONSTANT(SDF_OVERSIZE_100_PERCENT);
+	BIND_ENUM_CONSTANT(SDF_OVERSIZE_120_PERCENT);
+	BIND_ENUM_CONSTANT(SDF_OVERSIZE_150_PERCENT);
+	BIND_ENUM_CONSTANT(SDF_OVERSIZE_200_PERCENT);
+	BIND_ENUM_CONSTANT(SDF_OVERSIZE_MAX);
+
+	BIND_ENUM_CONSTANT(SDF_SCALE_100_PERCENT);
+	BIND_ENUM_CONSTANT(SDF_SCALE_50_PERCENT);
+	BIND_ENUM_CONSTANT(SDF_SCALE_25_PERCENT);
+	BIND_ENUM_CONSTANT(SDF_SCALE_MAX);
 }
 
 Viewport::Viewport() {
@@ -3616,6 +3664,8 @@ Viewport::Viewport() {
 	set_shadow_atlas_quadrant_subdiv(1, SHADOW_ATLAS_QUADRANT_SUBDIV_4);
 	set_shadow_atlas_quadrant_subdiv(2, SHADOW_ATLAS_QUADRANT_SUBDIV_16);
 	set_shadow_atlas_quadrant_subdiv(3, SHADOW_ATLAS_QUADRANT_SUBDIV_64);
+
+	set_lod_threshold(lod_threshold);
 
 	String id = itos(get_instance_id());
 	input_group = "_vp_input" + id;
@@ -3663,6 +3713,10 @@ Viewport::Viewport() {
 
 	default_canvas_item_texture_filter = DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_LINEAR;
 	default_canvas_item_texture_repeat = DEFAULT_CANVAS_ITEM_TEXTURE_REPEAT_DISABLED;
+
+	sdf_oversize = SDF_OVERSIZE_120_PERCENT;
+	sdf_scale = SDF_SCALE_50_PERCENT;
+	set_sdf_oversize(SDF_OVERSIZE_120_PERCENT); //set to server
 }
 
 Viewport::~Viewport() {
@@ -3785,7 +3839,7 @@ void SubViewport::_bind_methods() {
 
 	BIND_ENUM_CONSTANT(CLEAR_MODE_ALWAYS);
 	BIND_ENUM_CONSTANT(CLEAR_MODE_NEVER);
-	BIND_ENUM_CONSTANT(CLEAR_MODE_ONLY_NEXT_FRAME);
+	BIND_ENUM_CONSTANT(CLEAR_MODE_ONCE);
 
 	BIND_ENUM_CONSTANT(UPDATE_DISABLED);
 	BIND_ENUM_CONSTANT(UPDATE_ONCE);

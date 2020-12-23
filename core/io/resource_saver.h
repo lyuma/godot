@@ -31,7 +31,7 @@
 #ifndef RESOURCE_SAVER_H
 #define RESOURCE_SAVER_H
 
-#include "core/resource.h"
+#include "core/io/resource.h"
 
 class ResourceFormatSaver : public Reference {
 	GDCLASS(ResourceFormatSaver, Reference);
@@ -63,7 +63,6 @@ class ResourceSaver {
 
 public:
 	enum SaverFlags {
-
 		FLAG_RELATIVE_PATHS = 1,
 		FLAG_BUNDLE_RESOURCES = 2,
 		FLAG_CHANGE_PATH = 4,

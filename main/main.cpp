@@ -30,6 +30,7 @@
 
 #include "main.h"
 
+#include "core/config/project_settings.h"
 #include "core/core_string_names.h"
 #include "core/crypto/crypto.h"
 #include "core/debugger/engine_debugger.h"
@@ -41,12 +42,11 @@
 #include "core/io/image_loader.h"
 #include "core/io/ip.h"
 #include "core/io/resource_loader.h"
-#include "core/message_queue.h"
+#include "core/object/message_queue.h"
 #include "core/os/dir_access.h"
 #include "core/os/os.h"
-#include "core/project_settings.h"
 #include "core/register_core_types.h"
-#include "core/translation.h"
+#include "core/string/translation.h"
 #include "core/version.h"
 #include "core/version_hash.gen.h"
 #include "drivers/register_driver_types.h"
@@ -70,8 +70,9 @@
 #include "servers/physics_server_2d.h"
 #include "servers/physics_server_3d.h"
 #include "servers/register_server_types.h"
-#include "servers/rendering/rendering_server_raster.h"
+#include "servers/rendering/rendering_server_default.h"
 #include "servers/rendering/rendering_server_wrap_mt.h"
+#include "servers/text_server.h"
 #include "servers/xr_server.h"
 
 #ifdef TESTS_ENABLED
@@ -80,8 +81,8 @@
 
 #ifdef TOOLS_ENABLED
 
-#include "editor/doc_data.h"
 #include "editor/doc_data_class_path.gen.h"
+#include "editor/doc_tools.h"
 #include "editor/editor_node.h"
 #include "editor/editor_settings.h"
 #include "editor/progress_dialog.h"
@@ -113,6 +114,7 @@ static DisplayServer *display_server = nullptr;
 static RenderingServer *rendering_server = nullptr;
 static CameraServer *camera_server = nullptr;
 static XRServer *xr_server = nullptr;
+static TextServerManager *tsman = nullptr;
 static PhysicsServer3D *physics_server = nullptr;
 static PhysicsServer2D *physics_2d_server = nullptr;
 static NavigationServer3D *navigation_server = nullptr;
@@ -122,6 +124,8 @@ static bool _start_success = false;
 
 // Drivers
 
+String text_driver = "";
+static int text_driver_idx = -1;
 static int display_driver_idx = -1;
 static int audio_driver_idx = -1;
 
@@ -304,7 +308,11 @@ void Main::print_help(const char *p_binary) {
 		OS::get_singleton()->print(")");
 	}
 	OS::get_singleton()->print("].\n");
+
 	OS::get_singleton()->print("  --rendering-driver <driver>      Rendering driver (depends on display driver).\n");
+
+	OS::get_singleton()->print("  --text-driver <driver>           Text driver (Fonts, BiDi, shaping)\n");
+
 	OS::get_singleton()->print("\n");
 
 #ifndef SERVER_ENABLED
@@ -334,8 +342,8 @@ void Main::print_help(const char *p_binary) {
 	OS::get_singleton()->print("  -d, --debug                      Debug (local stdout debugger).\n");
 	OS::get_singleton()->print("  -b, --breakpoints                Breakpoint list as source::line comma-separated pairs, no spaces (use %%20 instead).\n");
 	OS::get_singleton()->print("  --profiling                      Enable profiling in the script debugger.\n");
-#if DEBUG_ENABLED
 	OS::get_singleton()->print("  --vk-layers                      Enable Vulkan Validation layers for debugging.\n");
+#if DEBUG_ENABLED
 	OS::get_singleton()->print("  --gpu-abort                      Abort on GPU errors (usually validation layer errors), may help see the problem if your system freezes.\n");
 #endif
 	OS::get_singleton()->print("  --remote-debug <uri>             Remote debug (<protocol>://<host/IP>[:<port>], e.g. tcp://127.0.0.1:6007).\n");
@@ -649,6 +657,14 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 				OS::get_singleton()->print("Missing audio driver argument, aborting.\n");
 				goto error;
 			}
+		} else if (I->get() == "--text-driver") {
+			if (I->next()) {
+				text_driver = I->next()->get();
+				N = I->next()->next();
+			} else {
+				OS::get_singleton()->print("Missing text driver argument, aborting.\n");
+				goto error;
+			}
 
 		} else if (I->get() == "--display-driver") { // force video driver
 
@@ -698,9 +714,9 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 		} else if (I->get() == "-w" || I->get() == "--windowed") { // force windowed window
 
 			init_windowed = true;
-#ifdef DEBUG_ENABLED
 		} else if (I->get() == "--vk-layers") {
 			Engine::singleton->use_validation_layers = true;
+#ifdef DEBUG_ENABLED
 		} else if (I->get() == "--gpu-abort") {
 			Engine::singleton->abort_on_gpu_errors = true;
 #endif
@@ -1105,6 +1121,11 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 	}
 #endif
 
+	// Only flush stdout in debug builds by default, as spamming `print()` will
+	// decrease performance if this is enabled.
+	GLOBAL_DEF("application/run/flush_stdout_on_print", false);
+	GLOBAL_DEF("application/run/flush_stdout_on_print.debug", true);
+
 	GLOBAL_DEF("logging/file_logging/enable_file_logging", false);
 	// Only file logging by default on desktop platforms as logs can't be
 	// accessed easily on mobile/Web platforms (if at all).
@@ -1143,7 +1164,7 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 		use_custom_res = false;
 		input_map->load_default(); //keys for editor
 	} else {
-		input_map->load_from_globals(); //keys for game
+		input_map->load_from_project_settings(); //keys for game
 	}
 
 	if (bool(ProjectSettings::get_singleton()->get("application/run/disable_stdout"))) {
@@ -1227,6 +1248,8 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 			window_flags |= DisplayServer::WINDOW_FLAG_ALWAYS_ON_TOP_BIT;
 		}
 	}
+
+	GLOBAL_DEF("display/window/force_right_to_left_layout_direction", false);
 
 	if (!force_lowdpi) {
 		OS::get_singleton()->_allow_hidpi = GLOBAL_DEF("display/window/dpi/allow_hidpi", false);
@@ -1388,6 +1411,7 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 
 error:
 
+	text_driver = "";
 	display_driver = "";
 	audio_driver = "";
 	tablet_driver = "";
@@ -1449,6 +1473,65 @@ Error Main::setup2(Thread::ID p_main_tid_override) {
 		Thread::_main_thread_id = p_main_tid_override;
 	}
 
+	/* Determine text driver */
+
+	GLOBAL_DEF("display/window/text_name", "");
+	if (text_driver == "") {
+		text_driver = GLOBAL_GET("display/window/text_name");
+	}
+
+	if (text_driver != "") {
+		/* Load user selected text server. */
+		for (int i = 0; i < TextServerManager::get_interface_count(); i++) {
+			if (text_driver == TextServerManager::get_interface_name(i)) {
+				text_driver_idx = i;
+				break;
+			}
+		}
+	}
+
+	if (text_driver_idx < 0) {
+		/* If not selected, use one with the most features available. */
+		int max_features = 0;
+		for (int i = 0; i < TextServerManager::get_interface_count(); i++) {
+			uint32_t ftrs = TextServerManager::get_interface_features(i);
+			int features = 0;
+			while (ftrs) {
+				features += ftrs & 1;
+				ftrs >>= 1;
+			}
+			if (features >= max_features) {
+				max_features = features;
+				text_driver_idx = i;
+			}
+		}
+	}
+	printf("Using %s text server...\n", TextServerManager::get_interface_name(text_driver_idx).utf8().get_data());
+
+	/* Initialize Text Server */
+
+	{
+		tsman = memnew(TextServerManager);
+		Error err;
+		TextServer *text_server = TextServerManager::initialize(text_driver_idx, err);
+		if (err != OK || text_server == nullptr) {
+			for (int i = 0; i < TextServerManager::get_interface_count(); i++) {
+				if (i == text_driver_idx) {
+					continue; //don't try the same twice
+				}
+				text_server = TextServerManager::initialize(i, err);
+				if (err == OK && text_server != nullptr) {
+					break;
+				}
+			}
+		}
+
+		if (err != OK || text_server == nullptr) {
+			ERR_PRINT("Unable to create TextServer, all text drivers failed.");
+			return err;
+		}
+	}
+
 	/* Initialize Input */
 
 	input = memnew(Input);
@@ -1459,23 +1542,21 @@ Error Main::setup2(Thread::ID p_main_tid_override) {
 		String rendering_driver; // temp broken
 
 		Error err;
-		display_server = DisplayServer::create(display_driver_idx, rendering_driver, window_mode, window_flags,
-				window_size, err);
-		if (err != OK) {
+		display_server = DisplayServer::create(display_driver_idx, rendering_driver, window_mode, window_flags, window_size, err);
+		if (err != OK || display_server == nullptr) {
 			//ok i guess we can't use this display server, try other ones
 			for (int i = 0; i < DisplayServer::get_create_function_count(); i++) {
 				if (i == display_driver_idx) {
 					continue; //don't try the same twice
 				}
-				display_server = DisplayServer::create(display_driver_idx, rendering_driver, window_mode, window_flags,
-						window_size, err);
-				if (err == OK) {
+				display_server = DisplayServer::create(i, rendering_driver, window_mode, window_flags, window_size, err);
+				if (err == OK && display_server != nullptr) {
 					break;
 				}
 			}
 		}
 
-		if (!display_server || err != OK) {
+		if (err != OK || display_server == nullptr) {
 			ERR_PRINT("Unable to create DisplayServer, all display drivers failed.");
 			return err;
 		}
@@ -1487,7 +1568,7 @@ Error Main::setup2(Thread::ID p_main_tid_override) {
 
 	/* Initialize Visual Server */
 
-	rendering_server = memnew(RenderingServerRaster);
+	rendering_server = memnew(RenderingServerDefault);
 	if (OS::get_singleton()->get_render_thread_mode() != OS::RENDER_THREAD_UNSAFE) {
 		rendering_server = memnew(RenderingServerWrapMT(rendering_server,
 				OS::get_singleton()->get_render_thread_mode() ==
@@ -1608,7 +1689,7 @@ Error Main::setup2(Thread::ID p_main_tid_override) {
 	GLOBAL_DEF("application/config/icon", String());
 	ProjectSettings::get_singleton()->set_custom_property_info("application/config/icon",
 			PropertyInfo(Variant::STRING, "application/config/icon",
-					PROPERTY_HINT_FILE, "*.png,*.webp"));
+					PROPERTY_HINT_FILE, "*.png,*.webp,*.svg,*.svgz"));
 
 	GLOBAL_DEF("application/config/macos_native_icon", String());
 	ProjectSettings::get_singleton()->set_custom_property_info("application/config/macos_native_icon",
@@ -1838,10 +1919,10 @@ bool Main::start() {
 		GLOBAL_DEF("mono/project/auto_update_project", true);
 #endif
 
-		DocData doc;
+		DocTools doc;
 		doc.generate(doc_base);
 
-		DocData docsrc;
+		DocTools docsrc;
 		Map<String, String> doc_data_classes;
 		Set<String> checked_paths;
 		print_line("Loading docs...");
@@ -1881,7 +1962,7 @@ bool Main::start() {
 		doc.merge_from(docsrc);
 		for (Set<String>::Element *E = checked_paths.front(); E; E = E->next()) {
 			print_line("Erasing old docs at: " + E->get());
-			DocData::erase_classes(E->get());
+			DocTools::erase_classes(E->get());
 		}
 
 		print_line("Generating new docs...");
@@ -1890,14 +1971,6 @@ bool Main::start() {
 		return false;
 	}
 
-	if (_export_preset != "") {
-		if (positional_arg == "") {
-			String err = "Command line includes export parameter option, but no destination path was given.\n";
-			err += "Please specify the binary's file path to export to. Aborting export.";
-			ERR_PRINT(err);
-			return false;
-		}
-	}
 #endif
 
 	if (script == "" && game_path == "" && String(GLOBAL_DEF("application/run/main_scene", "")) != "") {
@@ -2232,7 +2305,7 @@ bool Main::start() {
 
 #ifdef TOOLS_ENABLED
 			if (editor) {
-				if (game_path != GLOBAL_GET("application/run/main_scene") || !editor_node->has_scenes_in_session()) {
+				if (game_path != String(GLOBAL_GET("application/run/main_scene")) || !editor_node->has_scenes_in_session()) {
 					Error serr = editor_node->load_scene(local_game_path);
 					if (serr != OK) {
 						ERR_PRINT("Failed to load scene");
@@ -2396,7 +2469,6 @@ bool Main::iteration() {
 	for (int iters = 0; iters < advance.physics_steps; ++iters) {
 		uint64_t physics_begin = OS::get_singleton()->get_ticks_usec();
 
-		PhysicsServer3D::get_singleton()->sync();
 		PhysicsServer3D::get_singleton()->flush_queries();
 
 		PhysicsServer2D::get_singleton()->sync();
@@ -2580,6 +2652,10 @@ void Main::cleanup() {
 	finalize_physics();
 	finalize_navigation_server();
 	finalize_display();
+
+	if (tsman) {
+		memdelete(tsman);
+	}
 
 	if (input) {
 		memdelete(input);

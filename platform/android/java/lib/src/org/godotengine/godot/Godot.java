@@ -760,9 +760,7 @@ public class Godot extends Fragment implements SensorEventListener, IDownloaderC
 
 	/*
 	@Override public boolean dispatchKeyEvent(KeyEvent event) {
-
 		if (event.getKeyCode()==KeyEvent.KEYCODE_BACK) {
-
 			System.out.printf("** BACK REQUEST!\n");
 
 			GodotLib.quit();
@@ -989,5 +987,10 @@ public class Godot extends Fragment implements SensorEventListener, IDownloaderC
 	}
 	public void initInputDevices() {
 		mRenderView.initInputDevices();
+	}
+
+	@Keep
+	private GodotRenderView getRenderView() { // used by native side to get renderView
+		return mRenderView;
 	}
 }

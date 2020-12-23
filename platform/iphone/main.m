@@ -28,7 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#import "app_delegate.h"
+#import "godot_app_delegate.h"
 
 #import <UIKit/UIKit.h>
 #include <stdio.h>
@@ -49,7 +49,8 @@ int main(int argc, char *argv[]) {
 
 	printf("running app main\n");
 	@autoreleasepool {
-		UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
+		NSString *className = NSStringFromClass([GodotApplicalitionDelegate class]);
+		UIApplicationMain(argc, argv, nil, className);
 	}
 	printf("main done\n");
 	return 0;

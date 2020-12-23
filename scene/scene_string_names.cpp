@@ -41,7 +41,7 @@ SceneStringNames::SceneStringNames() {
 	doubledot = StaticCString::create("..");
 	draw = StaticCString::create("draw");
 	_draw = StaticCString::create("_draw");
-	hide = StaticCString::create("hide");
+	hidden = StaticCString::create("hidden");
 	visibility_changed = StaticCString::create("visibility_changed");
 	input_event = StaticCString::create("input_event");
 	shader = StaticCString::create("shader");
@@ -104,6 +104,7 @@ SceneStringNames::SceneStringNames() {
 	_update_xform = StaticCString::create("_update_xform");
 
 	_clips_input = StaticCString::create("_clips_input");
+	_structured_text_parser = StaticCString::create("_structured_text_parser");
 
 	_proxgroup_add = StaticCString::create("_proxgroup_add");
 	_proxgroup_remove = StaticCString::create("_proxgroup_remove");

@@ -33,6 +33,7 @@
 #include <mono/metadata/threads.h>
 #include <stdint.h>
 
+#include "core/config/project_settings.h"
 #include "core/debugger/engine_debugger.h"
 #include "core/debugger/script_debugger.h"
 #include "core/io/json.h"
@@ -40,7 +41,6 @@
 #include "core/os/mutex.h"
 #include "core/os/os.h"
 #include "core/os/thread.h"
-#include "core/project_settings.h"
 
 #ifdef TOOLS_ENABLED
 #include "editor/bindings_generator.h"
@@ -477,7 +477,7 @@ static String variant_type_to_managed_name(const String &p_var_type_name) {
 		Variant::COLOR,
 		Variant::STRING_NAME,
 		Variant::NODE_PATH,
-		Variant::_RID,
+		Variant::RID,
 		Variant::CALLABLE
 	};
 
@@ -2984,7 +2984,7 @@ void CSharpScript::update_script_class_info(Ref<CSharpScript> p_script) {
 		p_script->tool = nesting_class && nesting_class->has_attribute(CACHED_CLASS(ToolAttribute));
 	}
 
-#if TOOLS_ENABLED
+#ifdef TOOLS_ENABLED
 	if (!p_script->tool) {
 		p_script->tool = p_script->script_class->get_assembly() == GDMono::get_singleton()->get_tools_assembly();
 	}

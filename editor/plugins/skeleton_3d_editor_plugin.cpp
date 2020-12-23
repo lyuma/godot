@@ -114,10 +114,11 @@ void BoneTransformEditor::_notification(int p_what) {
 		}
 		case NOTIFICATION_SORT_CHILDREN: {
 			const Ref<Font> font = get_theme_font("font", "Tree");
+			int font_size = get_theme_font_size("font_size", "Tree");
 
 			Point2 buffer;
 			buffer.x += get_theme_constant("inspector_margin", "Editor");
-			buffer.y += font->get_height();
+			buffer.y += font->get_height(font_size);
 			buffer.y += get_theme_constant("vseparation", "Tree");
 
 			const float vector_height = translation_property->get_size().y;
@@ -263,12 +264,7 @@ void BoneTransformEditor::_update_transform_properties(Transform tform) {
 }
 
 BoneTransformEditor::BoneTransformEditor(Skeleton3D *p_skeleton) :
-		skeleton(p_skeleton),
-		key_button(nullptr),
-		enabled_checkbox(nullptr),
-		keyable(false),
-		toggle_enabled(false),
-		updating(false) {
+		skeleton(p_skeleton) {
 	undo_redo = EditorNode::get_undo_redo();
 }
 

@@ -29,7 +29,7 @@
 /*************************************************************************/
 
 #include "container.h"
-#include "core/message_queue.h"
+#include "core/object/message_queue.h"
 #include "scene/scene_string_names.h"
 
 void Container::_child_minsize_changed() {
@@ -121,12 +121,7 @@ void Container::fit_child_in_rect(Control *p_child, const Rect2 &p_rect) {
 		}
 	}
 
-	for (int i = 0; i < 4; i++) {
-		p_child->set_anchor(Margin(i), ANCHOR_BEGIN);
-	}
-
-	p_child->set_position(r.position);
-	p_child->set_size(r.size);
+	p_child->set_rect(r);
 	p_child->set_rotation(0);
 	p_child->set_scale(Vector2(1, 1));
 }

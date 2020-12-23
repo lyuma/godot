@@ -31,7 +31,7 @@
 #ifndef TEST_COLOR_H
 #define TEST_COLOR_H
 
-#include "core/color.h"
+#include "core/math/color.h"
 
 #include "thirdparty/doctest/doctest.h"
 
@@ -185,9 +185,6 @@ TEST_CASE("[Color] Manipulation methods") {
 	CHECK_MESSAGE(
 			blue.inverted().is_equal_approx(Color(1, 1, 0, 0.4)),
 			"Inverted color should have its red, green and blue components inverted.");
-	CHECK_MESSAGE(
-			blue.contrasted().is_equal_approx(Color(0.5, 0.5, 0.5, 0.4)),
-			"Contrasted pure blue should be fully gray.");
 
 	const Color purple = Color(0.5, 0.2, 0.5, 0.25);
 
@@ -205,7 +202,6 @@ TEST_CASE("[Color] Manipulation methods") {
 			red.lerp(yellow, 0.5).is_equal_approx(Color(1, 0.5, 0, 0.5)),
 			"Red interpolated with yellow should be orange (with interpolated alpha).");
 }
-
 } // namespace TestColor
 
 #endif // TEST_COLOR_H

@@ -33,12 +33,12 @@
 
 #include "core/register_core_types.h"
 
-#include "core/global_constants.h"
-#include "core/ordered_hash_map.h"
+#include "core/core_constants.h"
 #include "core/os/os.h"
-#include "core/string_name.h"
-#include "core/ustring.h"
-#include "core/variant.h"
+#include "core/string/string_name.h"
+#include "core/string/ustring.h"
+#include "core/templates/ordered_hash_map.h"
+#include "core/variant/variant.h"
 
 #include "tests/test_macros.h"
 
@@ -255,7 +255,7 @@ bool arg_default_value_is_assignable_to_type(const Context &p_context, const Var
 		case Variant::VECTOR2:
 		case Variant::RECT2:
 		case Variant::VECTOR3:
-		case Variant::_RID:
+		case Variant::RID:
 		case Variant::ARRAY:
 		case Variant::DICTIONARY:
 		case Variant::PACKED_BYTE_ARRAY:
@@ -769,16 +769,16 @@ void add_builtin_types(Context &r_context) {
 }
 
 void add_global_enums(Context &r_context) {
-	int global_constants_count = GlobalConstants::get_global_constant_count();
+	int global_constants_count = CoreConstants::get_global_constant_count();
 
 	if (global_constants_count > 0) {
 		for (int i = 0; i < global_constants_count; i++) {
-			StringName enum_name = GlobalConstants::get_global_constant_enum(i);
+			StringName enum_name = CoreConstants::get_global_constant_enum(i);
 
 			if (enum_name != StringName()) {
 				ConstantData constant;
-				constant.name = GlobalConstants::get_global_constant_name(i);
-				constant.value = GlobalConstants::get_global_constant_value(i);
+				constant.name = CoreConstants::get_global_constant_name(i);
+				constant.value = CoreConstants::get_global_constant_value(i);
 
 				EnumData enum_;
 				enum_.name = enum_name;
@@ -830,7 +830,6 @@ TEST_SUITE("[ClassDB]") {
 		}
 	}
 }
-
 } // namespace TestClassDB
 
 #endif //GODOT_TEST_CLASS_DB_H

@@ -31,8 +31,8 @@
 #ifndef TEST_VARIANT_H
 #define TEST_VARIANT_H
 
-#include "core/variant.h"
-#include "core/variant_parser.h"
+#include "core/variant/variant.h"
+#include "core/variant/variant_parser.h"
 
 #include "tests/test_macros.h"
 
@@ -105,7 +105,6 @@ TEST_CASE("[Variant] Writer and parser float") {
 
 	CHECK_MESSAGE(b64_float_parsed == 340282001837565597733306976381245063168.0, "Should not overflow.");
 }
-
 } // namespace TestVariant
 
 #endif // TEST_VARIANT_H

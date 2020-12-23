@@ -33,7 +33,7 @@
 
 #include <mono/jit/jit.h>
 
-#include "core/reference.h"
+#include "core/object/reference.h"
 
 namespace gdmono {
 
@@ -42,7 +42,6 @@ enum class GCHandleType : char {
 	STRONG_HANDLE,
 	WEAK_HANDLE
 };
-
 }
 
 // Manual release of the GC handle must be done when using this struct

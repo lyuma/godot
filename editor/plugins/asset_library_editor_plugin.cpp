@@ -295,8 +295,8 @@ EditorAssetLibraryItemDescription::EditorAssetLibraryItemDescription() {
 	preview_hb->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 
 	previews->add_child(preview_hb);
-	get_ok()->set_text(TTR("Download"));
-	get_cancel()->set_text(TTR("Close"));
+	get_ok_button()->set_text(TTR("Download"));
+	get_cancel_button()->set_text(TTR("Close"));
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -580,7 +580,7 @@ void EditorAssetLibrary::_notification(int p_what) {
 	}
 }
 
-void EditorAssetLibrary::_unhandled_input(const Ref<InputEvent> &p_event) {
+void EditorAssetLibrary::_unhandled_key_input(const Ref<InputEvent> &p_event) {
 	const Ref<InputEventKey> key = p_event;
 
 	if (key.is_valid() && key->is_pressed()) {
@@ -1187,6 +1187,10 @@ void EditorAssetLibrary::_http_request_completed(int p_status, int p_code, const
 					_request_image(item->get_instance_id(), r["icon_url"], IMAGE_QUEUE_ICON, 0);
 				}
 			}
+
+			if (!result.empty()) {
+				library_scroll->set_v_scroll(0);
+			}
 		} break;
 		case REQUESTING_ASSET: {
 			Dictionary r = d;
@@ -1281,7 +1285,7 @@ void EditorAssetLibrary::disable_community_support() {
 }
 
 void EditorAssetLibrary::_bind_methods() {
-	ClassDB::bind_method("_unhandled_input", &EditorAssetLibrary::_unhandled_input);
+	ClassDB::bind_method("_unhandled_key_input", &EditorAssetLibrary::_unhandled_key_input);
 
 	ADD_SIGNAL(MethodInfo("install_asset", PropertyInfo(Variant::STRING, "zip_path"), PropertyInfo(Variant::STRING, "name")));
 }
@@ -1454,7 +1458,7 @@ EditorAssetLibrary::EditorAssetLibrary(bool p_templates_only) {
 	description = nullptr;
 
 	set_process(true);
-	set_process_unhandled_input(true);
+	set_process_unhandled_key_input(true); // Global shortcuts since there is no main element to be focused.
 
 	downloads_scroll = memnew(ScrollContainer);
 	downloads_scroll->set_enable_h_scroll(true);

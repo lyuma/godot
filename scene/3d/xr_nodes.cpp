@@ -211,7 +211,7 @@ void XRController3D::_notification(int p_what) {
 							emit_signal("button_pressed", i);
 							button_states += mask;
 						} else if (was_pressed && !is_pressed) {
-							emit_signal("button_release", i);
+							emit_signal("button_released", i);
 							button_states -= mask;
 						};
 
@@ -247,7 +247,7 @@ void XRController3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_joystick_axis", "axis"), &XRController3D::get_joystick_axis);
 
 	ClassDB::bind_method(D_METHOD("get_is_active"), &XRController3D::get_is_active);
-	ClassDB::bind_method(D_METHOD("get_hand"), &XRController3D::get_hand);
+	ClassDB::bind_method(D_METHOD("get_tracker_hand"), &XRController3D::get_tracker_hand);
 
 	ClassDB::bind_method(D_METHOD("get_rumble"), &XRController3D::get_rumble);
 	ClassDB::bind_method(D_METHOD("set_rumble", "rumble"), &XRController3D::set_rumble);
@@ -257,7 +257,7 @@ void XRController3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_mesh"), &XRController3D::get_mesh);
 
 	ADD_SIGNAL(MethodInfo("button_pressed", PropertyInfo(Variant::INT, "button")));
-	ADD_SIGNAL(MethodInfo("button_release", PropertyInfo(Variant::INT, "button")));
+	ADD_SIGNAL(MethodInfo("button_released", PropertyInfo(Variant::INT, "button")));
 	ADD_SIGNAL(MethodInfo("mesh_updated", PropertyInfo(Variant::OBJECT, "mesh", PROPERTY_HINT_RESOURCE_TYPE, "Mesh")));
 };
 
@@ -282,7 +282,7 @@ String XRController3D::get_controller_name() const {
 		return String("Not connected");
 	};
 
-	return tracker->get_name();
+	return tracker->get_tracker_name();
 };
 
 int XRController3D::get_joystick_id() const {
@@ -349,7 +349,7 @@ bool XRController3D::get_is_active() const {
 	return is_active;
 };
 
-XRPositionalTracker::TrackerHand XRController3D::get_hand() const {
+XRPositionalTracker::TrackerHand XRController3D::get_tracker_hand() const {
 	// get our XRServer
 	XRServer *xr_server = XRServer::get_singleton();
 	ERR_FAIL_NULL_V(xr_server, XRPositionalTracker::TRACKER_HAND_UNKNOWN);
@@ -359,7 +359,7 @@ XRPositionalTracker::TrackerHand XRController3D::get_hand() const {
 		return XRPositionalTracker::TRACKER_HAND_UNKNOWN;
 	};
 
-	return tracker->get_hand();
+	return tracker->get_tracker_hand();
 };
 
 String XRController3D::get_configuration_warning() const {
@@ -480,7 +480,7 @@ String XRAnchor3D::get_anchor_name() const {
 		return String("Not connected");
 	};
 
-	return tracker->get_name();
+	return tracker->get_tracker_name();
 };
 
 bool XRAnchor3D::get_is_active() const {

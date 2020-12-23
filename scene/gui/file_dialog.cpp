@@ -31,7 +31,7 @@
 #include "file_dialog.h"
 
 #include "core/os/keyboard.h"
-#include "core/print_string.h"
+#include "core/string/print_string.h"
 #include "scene/gui/label.h"
 
 FileDialog::GetIconFunc FileDialog::get_icon_func = nullptr;
@@ -324,15 +324,15 @@ void FileDialog::deselect_items() {
 
 	// And change get_ok title.
 	if (!tree->is_anything_selected()) {
-		get_ok()->set_disabled(_is_open_should_be_disabled());
+		get_ok_button()->set_disabled(_is_open_should_be_disabled());
 
 		switch (mode) {
 			case FILE_MODE_OPEN_FILE:
 			case FILE_MODE_OPEN_FILES:
-				get_ok()->set_text(RTR("Open"));
+				get_ok_button()->set_text(RTR("Open"));
 				break;
 			case FILE_MODE_OPEN_DIR:
-				get_ok()->set_text(RTR("Select Current Folder"));
+				get_ok_button()->set_text(RTR("Select Current Folder"));
 				break;
 			case FILE_MODE_OPEN_ANY:
 			case FILE_MODE_SAVE_FILE:
@@ -356,10 +356,10 @@ void FileDialog::_tree_selected() {
 	if (!d["dir"]) {
 		file->set_text(d["name"]);
 	} else if (mode == FILE_MODE_OPEN_DIR) {
-		get_ok()->set_text(RTR("Select This Folder"));
+		get_ok_button()->set_text(RTR("Select This Folder"));
 	}
 
-	get_ok()->set_disabled(_is_open_should_be_disabled());
+	get_ok_button()->set_disabled(_is_open_should_be_disabled());
 }
 
 void FileDialog::_tree_item_activated() {
@@ -646,35 +646,35 @@ void FileDialog::set_file_mode(FileMode p_mode) {
 	mode = p_mode;
 	switch (mode) {
 		case FILE_MODE_OPEN_FILE:
-			get_ok()->set_text(RTR("Open"));
+			get_ok_button()->set_text(RTR("Open"));
 			if (mode_overrides_title) {
 				set_title(RTR("Open a File"));
 			}
 			makedir->hide();
 			break;
 		case FILE_MODE_OPEN_FILES:
-			get_ok()->set_text(RTR("Open"));
+			get_ok_button()->set_text(RTR("Open"));
 			if (mode_overrides_title) {
 				set_title(RTR("Open File(s)"));
 			}
 			makedir->hide();
 			break;
 		case FILE_MODE_OPEN_DIR:
-			get_ok()->set_text(RTR("Select Current Folder"));
+			get_ok_button()->set_text(RTR("Select Current Folder"));
 			if (mode_overrides_title) {
 				set_title(RTR("Open a Directory"));
 			}
 			makedir->show();
 			break;
 		case FILE_MODE_OPEN_ANY:
-			get_ok()->set_text(RTR("Open"));
+			get_ok_button()->set_text(RTR("Open"));
 			if (mode_overrides_title) {
 				set_title(RTR("Open a File or Directory"));
 			}
 			makedir->show();
 			break;
 		case FILE_MODE_SAVE_FILE:
-			get_ok()->set_text(RTR("Save"));
+			get_ok_button()->set_text(RTR("Save"));
 			if (mode_overrides_title) {
 				set_title(RTR("Save a File"));
 			}
@@ -879,6 +879,7 @@ FileDialog::FileDialog() {
 	hbc->add_child(drives);
 
 	dir = memnew(LineEdit);
+	dir->set_structured_text_bidi_override(Control::STRUCTURED_TEXT_FILE);
 	hbc->add_child(dir);
 	dir->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 
@@ -912,6 +913,7 @@ FileDialog::FileDialog() {
 	file_box = memnew(HBoxContainer);
 	file_box->add_child(memnew(Label(RTR("File:"))));
 	file = memnew(LineEdit);
+	file->set_structured_text_bidi_override(Control::STRUCTURED_TEXT_FILE);
 	file->set_stretch_ratio(4);
 	file->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	file_box->add_child(file);
@@ -947,6 +949,7 @@ FileDialog::FileDialog() {
 	makedialog->add_child(makevb);
 
 	makedirname = memnew(LineEdit);
+	makedirname->set_structured_text_bidi_override(Control::STRUCTURED_TEXT_FILE);
 	makevb->add_margin_child(RTR("Name:"), makedirname);
 	add_child(makedialog);
 	makedialog->register_text_enter(makedirname);

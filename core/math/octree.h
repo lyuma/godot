@@ -31,13 +31,13 @@
 #ifndef OCTREE_H
 #define OCTREE_H
 
-#include "core/list.h"
-#include "core/map.h"
 #include "core/math/aabb.h"
 #include "core/math/geometry_3d.h"
 #include "core/math/vector3.h"
-#include "core/print_string.h"
-#include "core/variant.h"
+#include "core/string/print_string.h"
+#include "core/templates/list.h"
+#include "core/templates/map.h"
+#include "core/variant/variant.h"
 
 typedef uint32_t OctreeElementID;
 
@@ -379,7 +379,6 @@ void Octree<T, use_pairs, AL>::_insert_element(Element *p_element, Octant *p_oct
 
 	if (p_octant->aabb.size.x / OCTREE_DIVISOR < element_size) {
 		//if (p_octant->aabb.size.x*0.5 < element_size) {
-
 		/* at smallest possible size for the element  */
 		typename Element::OctantOwner owner;
 		owner.octant = p_octant;

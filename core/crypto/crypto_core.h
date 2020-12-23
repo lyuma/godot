@@ -31,13 +31,13 @@
 #ifndef CRYPTO_CORE_H
 #define CRYPTO_CORE_H
 
-#include "core/reference.h"
+#include "core/object/reference.h"
 
 class CryptoCore {
 public:
 	class MD5Context {
 	private:
-		void *ctx; // To include, or not to include...
+		void *ctx = nullptr; // To include, or not to include...
 
 	public:
 		MD5Context();
@@ -50,7 +50,7 @@ public:
 
 	class SHA1Context {
 	private:
-		void *ctx; // To include, or not to include...
+		void *ctx = nullptr; // To include, or not to include...
 
 	public:
 		SHA1Context();
@@ -63,7 +63,7 @@ public:
 
 	class SHA256Context {
 	private:
-		void *ctx; // To include, or not to include...
+		void *ctx = nullptr; // To include, or not to include...
 
 	public:
 		SHA256Context();
@@ -76,7 +76,7 @@ public:
 
 	class AESContext {
 	private:
-		void *ctx; // To include, or not to include...
+		void *ctx = nullptr; // To include, or not to include...
 
 	public:
 		AESContext();

@@ -34,8 +34,8 @@
 #include "bullet_types_converter.h"
 #include "bullet_utilities.h"
 #include "constraint_bullet.h"
-#include "core/project_settings.h"
-#include "core/ustring.h"
+#include "core/config/project_settings.h"
+#include "core/string/ustring.h"
 #include "godot_collision_configuration.h"
 #include "godot_collision_dispatcher.h"
 #include "rigid_body_bullet.h"
@@ -478,10 +478,20 @@ void SpaceBullet::add_rigid_body(RigidBodyBullet *p_body) {
 }
 
 void SpaceBullet::remove_rigid_body(RigidBodyBullet *p_body) {
+	btRigidBody *btBody = p_body->get_bt_rigid_body();
+
+	int constraints = btBody->getNumConstraintRefs();
+	if (constraints > 0) {
+		WARN_PRINT("A body connected to joints was removed. Ensure bodies are disconnected from joints before removing them.");
+		for (int i = 0; i < constraints; i++) {
+			dynamicsWorld->removeConstraint(btBody->getConstraintRef(i));
+		}
+	}
+
 	if (p_body->is_static()) {
-		dynamicsWorld->removeCollisionObject(p_body->get_bt_rigid_body());
+		dynamicsWorld->removeCollisionObject(btBody);
 	} else {
-		dynamicsWorld->removeRigidBody(p_body->get_bt_rigid_body());
+		dynamicsWorld->removeRigidBody(btBody);
 	}
 }
 

@@ -31,7 +31,7 @@
 #ifndef GODOT_UPNP_H
 #define GODOT_UPNP_H
 
-#include "core/reference.h"
+#include "core/object/reference.h"
 
 #include "upnp_device.h"
 
@@ -57,7 +57,6 @@ protected:
 
 public:
 	enum UPNPResult {
-
 		UPNP_RESULT_SUCCESS,
 		UPNP_RESULT_NOT_AUTHORIZED,
 		UPNP_RESULT_PORT_MAPPING_NOT_FOUND,

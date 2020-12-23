@@ -31,7 +31,7 @@
 #ifndef HASHING_CONTEXT_H
 #define HASHING_CONTEXT_H
 
-#include "core/reference.h"
+#include "core/object/reference.h"
 
 class HashingContext : public Reference {
 	GDCLASS(HashingContext, Reference);
@@ -45,7 +45,7 @@ public:
 
 private:
 	void *ctx = nullptr;
-	HashType type;
+	HashType type = HASH_MD5;
 
 protected:
 	static void _bind_methods();

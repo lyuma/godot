@@ -31,14 +31,14 @@
 #ifndef RESOURCE_IMPORTER_TEXTURE_ATLAS_H
 #define RESOURCE_IMPORTER_TEXTURE_ATLAS_H
 
-#include "core/image.h"
+#include "core/io/image.h"
 #include "core/io/resource_importer.h"
 class ResourceImporterTextureAtlas : public ResourceImporter {
 	GDCLASS(ResourceImporterTextureAtlas, ResourceImporter);
 
 	struct PackData {
 		Rect2 region;
-		bool is_mesh;
+		bool is_mesh = false;
 		Vector<int> chart_pieces; //one for region, many for mesh
 		Vector<Vector<Vector2>> chart_vertices; //for mesh
 		Ref<Image> image;

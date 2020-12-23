@@ -30,10 +30,10 @@
 
 #include "packed_scene.h"
 
+#include "core/config/engine.h"
+#include "core/config/project_settings.h"
 #include "core/core_string_names.h"
-#include "core/engine.h"
 #include "core/io/resource_loader.h"
-#include "core/project_settings.h"
 #include "scene/2d/node_2d.h"
 #include "scene/3d/node_3d.h"
 #include "scene/gui/control.h"
@@ -1479,16 +1479,6 @@ Vector<NodePath> SceneState::get_editable_instances() const {
 int SceneState::add_name(const StringName &p_name) {
 	names.push_back(p_name);
 	return names.size() - 1;
-}
-
-int SceneState::find_name(const StringName &p_name) const {
-	for (int i = 0; i < names.size(); i++) {
-		if (names[i] == p_name) {
-			return i;
-		}
-	}
-
-	return -1;
 }
 
 int SceneState::add_value(const Variant &p_value) {

@@ -30,9 +30,9 @@
 
 #include "register_scene_types.h"
 
-#include "core/class_db.h"
+#include "core/config/project_settings.h"
+#include "core/object/class_db.h"
 #include "core/os/os.h"
-#include "core/project_settings.h"
 #include "scene/2d/animated_sprite_2d.h"
 #include "scene/2d/area_2d.h"
 #include "scene/2d/audio_stream_player_2d.h"
@@ -77,6 +77,7 @@
 #include "scene/animation/tween.h"
 #include "scene/audio/audio_stream_player.h"
 #include "scene/debugger/scene_debugger.h"
+#include "scene/gui/aspect_ratio_container.h"
 #include "scene/gui/box_container.h"
 #include "scene/gui/button.h"
 #include "scene/gui/center_container.h"
@@ -117,7 +118,7 @@
 #include "scene/gui/tabs.h"
 #include "scene/gui/text_edit.h"
 #include "scene/gui/texture_button.h"
-#include "scene/gui/texture_progress.h"
+#include "scene/gui/texture_progress_bar.h"
 #include "scene/gui/texture_rect.h"
 #include "scene/gui/tree.h"
 #include "scene/gui/video_player.h"
@@ -143,7 +144,7 @@
 #include "scene/resources/convex_polygon_shape_3d.h"
 #include "scene/resources/cylinder_shape_3d.h"
 #include "scene/resources/default_theme/default_theme.h"
-#include "scene/resources/dynamic_font.h"
+#include "scene/resources/font.h"
 #include "scene/resources/gradient.h"
 #include "scene/resources/height_map_shape_3d.h"
 #include "scene/resources/line_shape_2d.h"
@@ -167,6 +168,8 @@
 #include "scene/resources/surface_tool.h"
 #include "scene/resources/syntax_highlighter.h"
 #include "scene/resources/text_file.h"
+#include "scene/resources/text_line.h"
+#include "scene/resources/text_paragraph.h"
 #include "scene/resources/texture.h"
 #include "scene/resources/tile_set.h"
 #include "scene/resources/video_stream.h"
@@ -229,13 +232,15 @@
 static Ref<ResourceFormatSaverText> resource_saver_text;
 static Ref<ResourceFormatLoaderText> resource_loader_text;
 
-static Ref<ResourceFormatLoaderDynamicFont> resource_loader_dynamic_font;
+static Ref<ResourceFormatLoaderFont> resource_loader_font;
+
+#ifndef DISABLE_DEPRECATED
+static Ref<ResourceFormatLoaderCompatFont> resource_loader_compat_font;
+#endif /* DISABLE_DEPRECATED */
 
 static Ref<ResourceFormatLoaderStreamTexture2D> resource_loader_stream_texture;
 static Ref<ResourceFormatLoaderStreamTextureLayered> resource_loader_texture_layered;
 static Ref<ResourceFormatLoaderStreamTexture3D> resource_loader_texture_3d;
-
-static Ref<ResourceFormatLoaderBMFont> resource_loader_bmfont;
 
 static Ref<ResourceFormatSaverShader> resource_saver_shader;
 static Ref<ResourceFormatLoaderShader> resource_loader_shader;
@@ -247,8 +252,13 @@ void register_scene_types() {
 
 	Node::init_node_hrcr();
 
-	resource_loader_dynamic_font.instance();
-	ResourceLoader::add_resource_format_loader(resource_loader_dynamic_font);
+	resource_loader_font.instance();
+	ResourceLoader::add_resource_format_loader(resource_loader_font);
+
+#ifndef DISABLE_DEPRECATED
+	resource_loader_compat_font.instance();
+	ResourceLoader::add_resource_format_loader(resource_loader_compat_font);
+#endif /* DISABLE_DEPRECATED */
 
 	resource_loader_stream_texture.instance();
 	ResourceLoader::add_resource_format_loader(resource_loader_stream_texture);
@@ -270,9 +280,6 @@ void register_scene_types() {
 
 	resource_loader_shader.instance();
 	ResourceLoader::add_resource_format_loader(resource_loader_shader, true);
-
-	resource_loader_bmfont.instance();
-	ResourceLoader::add_resource_format_loader(resource_loader_bmfont, true);
 
 	OS::get_singleton()->yield(); //may take time to init
 
@@ -324,6 +331,7 @@ void register_scene_types() {
 	ClassDB::register_class<ColorRect>();
 	ClassDB::register_class<NinePatchRect>();
 	ClassDB::register_class<ReferenceRect>();
+	ClassDB::register_class<AspectRatioContainer>();
 	ClassDB::register_class<TabContainer>();
 	ClassDB::register_class<Tabs>();
 	ClassDB::register_virtual_class<Separator>();
@@ -341,7 +349,7 @@ void register_scene_types() {
 
 	OS::get_singleton()->yield(); //may take time to init
 
-	ClassDB::register_class<TextureProgress>();
+	ClassDB::register_class<TextureProgressBar>();
 	ClassDB::register_class<ItemList>();
 
 	ClassDB::register_class<LineEdit>();
@@ -628,7 +636,9 @@ void register_scene_types() {
 	ClassDB::register_class<Polygon2D>();
 	ClassDB::register_class<Skeleton2D>();
 	ClassDB::register_class<Bone2D>();
-	ClassDB::register_class<Light2D>();
+	ClassDB::register_virtual_class<Light2D>();
+	ClassDB::register_class<PointLight2D>();
+	ClassDB::register_class<DirectionalLight2D>();
 	ClassDB::register_class<LightOccluder2D>();
 	ClassDB::register_class<OccluderPolygon2D>();
 	ClassDB::register_class<YSort>();
@@ -669,8 +679,8 @@ void register_scene_types() {
 
 #ifndef _3D_DISABLED
 	ClassDB::register_virtual_class<PrimitiveMesh>();
+	ClassDB::register_class<BoxMesh>();
 	ClassDB::register_class<CapsuleMesh>();
-	ClassDB::register_class<CubeMesh>();
 	ClassDB::register_class<CylinderMesh>();
 	ClassDB::register_class<PlaneMesh>();
 	ClassDB::register_class<PrismMesh>();
@@ -736,16 +746,13 @@ void register_scene_types() {
 	ClassDB::register_class<StreamTexture2DArray>();
 
 	ClassDB::register_class<Animation>();
-	ClassDB::register_virtual_class<Font>();
-	ClassDB::register_class<BitmapFont>();
+	ClassDB::register_class<FontData>();
+	ClassDB::register_class<Font>();
 	ClassDB::register_class<Curve>();
 
 	ClassDB::register_class<TextFile>();
-
-	ClassDB::register_class<DynamicFontData>();
-	ClassDB::register_class<DynamicFont>();
-
-	DynamicFont::initialize_dynamic_fonts();
+	ClassDB::register_class<TextLine>();
+	ClassDB::register_class<TextParagraph>();
 
 	ClassDB::register_virtual_class<StyleBox>();
 	ClassDB::register_class<StyleBoxEmpty>();
@@ -801,6 +808,9 @@ void register_scene_types() {
 #ifndef DISABLE_DEPRECATED
 	// Dropped in 4.0, near approximation.
 	ClassDB::add_compatibility_class("AnimationTreePlayer", "AnimationTree");
+	ClassDB::add_compatibility_class("BitmapFont", "Font");
+	ClassDB::add_compatibility_class("DynamicFont", "Font");
+	ClassDB::add_compatibility_class("DynamicFontData", "FontData");
 	ClassDB::add_compatibility_class("ToolButton", "Button");
 
 	// Renamed in 4.0.
@@ -837,6 +847,7 @@ void register_scene_types() {
 	ClassDB::add_compatibility_class("CSGShape", "CSGShape3D");
 	ClassDB::add_compatibility_class("CSGSphere", "CSGSphere3D");
 	ClassDB::add_compatibility_class("CSGTorus", "CSGTorus3D");
+	ClassDB::add_compatibility_class("CubeMesh", "BoxMesh");
 	ClassDB::add_compatibility_class("CylinderShape", "CylinderShape3D");
 	ClassDB::add_compatibility_class("DirectionalLight", "DirectionalLight3D");
 	ClassDB::add_compatibility_class("EditorSpatialGizmo", "EditorNode3DGizmo");
@@ -904,6 +915,7 @@ void register_scene_types() {
 	ClassDB::add_compatibility_class("SpringArm", "SpringArm3D");
 	ClassDB::add_compatibility_class("Sprite", "Sprite2D");
 	ClassDB::add_compatibility_class("StaticBody", "StaticBody3D");
+	ClassDB::add_compatibility_class("TextureProgress", "TextureProgressBar");
 	ClassDB::add_compatibility_class("VehicleBody", "VehicleBody3D");
 	ClassDB::add_compatibility_class("VehicleWheel", "VehicleWheel3D");
 	ClassDB::add_compatibility_class("ViewportContainer", "SubViewportContainer");
@@ -917,8 +929,9 @@ void register_scene_types() {
 	ClassDB::add_compatibility_class("VisualShaderNodeScalarUniform", "VisualShaderNodeFloatUniform");
 	ClassDB::add_compatibility_class("World", "World3D");
 	ClassDB::add_compatibility_class("StreamTexture", "StreamTexture2D");
+	ClassDB::add_compatibility_class("Light2D", "PointLight2D");
 
-#endif
+#endif /* DISABLE_DEPRECATED */
 
 	OS::get_singleton()->yield(); //may take time to init
 
@@ -967,8 +980,13 @@ void unregister_scene_types() {
 	SceneDebugger::deinitialize();
 	clear_default_theme();
 
-	ResourceLoader::remove_resource_format_loader(resource_loader_dynamic_font);
-	resource_loader_dynamic_font.unref();
+	ResourceLoader::remove_resource_format_loader(resource_loader_font);
+	resource_loader_font.unref();
+
+#ifndef DISABLE_DEPRECATED
+	ResourceLoader::remove_resource_format_loader(resource_loader_compat_font);
+	resource_loader_compat_font.unref();
+#endif /* DISABLE_DEPRECATED */
 
 	ResourceLoader::remove_resource_format_loader(resource_loader_texture_layered);
 	resource_loader_texture_layered.unref();
@@ -978,8 +996,6 @@ void unregister_scene_types() {
 
 	ResourceLoader::remove_resource_format_loader(resource_loader_stream_texture);
 	resource_loader_stream_texture.unref();
-
-	DynamicFont::finish_dynamic_fonts();
 
 	ResourceSaver::remove_resource_format_saver(resource_saver_text);
 	resource_saver_text.unref();
@@ -992,9 +1008,6 @@ void unregister_scene_types() {
 
 	ResourceLoader::remove_resource_format_loader(resource_loader_shader);
 	resource_loader_shader.unref();
-
-	ResourceLoader::remove_resource_format_loader(resource_loader_bmfont);
-	resource_loader_bmfont.unref();
 
 	//StandardMaterial3D is not initialised when 3D is disabled, so it shouldn't be cleaned up either
 #ifndef _3D_DISABLED

@@ -31,13 +31,13 @@
 #ifndef SHADER_LANGUAGE_H
 #define SHADER_LANGUAGE_H
 
-#include "core/list.h"
-#include "core/map.h"
-#include "core/script_language.h"
-#include "core/string_name.h"
+#include "core/object/script_language.h"
+#include "core/string/string_name.h"
+#include "core/string/ustring.h"
+#include "core/templates/list.h"
+#include "core/templates/map.h"
 #include "core/typedefs.h"
-#include "core/ustring.h"
-#include "core/variant.h"
+#include "core/variant/variant.h"
 
 class ShaderLanguage {
 public:
@@ -46,7 +46,7 @@ public:
 		TK_IDENTIFIER,
 		TK_TRUE,
 		TK_FALSE,
-		TK_REAL_CONSTANT,
+		TK_FLOAT_CONSTANT,
 		TK_INT_CONSTANT,
 		TK_TYPE_VOID,
 		TK_TYPE_BOOL,
@@ -519,7 +519,7 @@ public:
 		DataType basetype = TYPE_VOID;
 		bool basetype_const = false;
 		StringName base_struct_name;
-		DataPrecision precision;
+		DataPrecision precision = PRECISION_DEFAULT;
 		DataType datatype = TYPE_VOID;
 		int array_size = 0;
 		StringName struct_name;
@@ -734,10 +734,12 @@ public:
 		struct Argument {
 			StringName name;
 			DataType type;
+			ArgumentQualifier qualifier;
 
-			Argument(const StringName &p_name = StringName(), DataType p_type = TYPE_VOID) {
+			Argument(const StringName &p_name = StringName(), DataType p_type = TYPE_VOID, ArgumentQualifier p_qualifier = ARGUMENT_QUALIFIER_IN) {
 				name = p_name;
 				type = p_type;
+				qualifier = p_qualifier;
 			}
 		};
 
@@ -855,6 +857,7 @@ private:
 	Error _validate_datatype(DataType p_type);
 	bool _compare_datatypes_in_nodes(Node *a, Node *b) const;
 
+	bool _validate_out_argument(BlockNode *p_block, const FunctionInfo &p_function_info, OperatorNode *p_func, StringName p_name, int p_arg_idx);
 	bool _validate_function_call(BlockNode *p_block, const FunctionInfo &p_function_info, OperatorNode *p_func, DataType *r_ret_type, StringName *r_ret_type_str);
 	bool _parse_function_arguments(BlockNode *p_block, const FunctionInfo &p_function_info, OperatorNode *p_func, int *r_complete_arg = nullptr);
 	bool _propagate_function_call_sampler_uniform_settings(StringName p_name, int p_argument, TextureFilter p_filter, TextureRepeat p_repeat);

@@ -30,7 +30,7 @@
 
 #include "panel.h"
 
-#include "core/print_string.h"
+#include "core/string/print_string.h"
 
 void Panel::_notification(int p_what) {
 	if (p_what == NOTIFICATION_DRAW) {
@@ -62,7 +62,4 @@ void Panel::_bind_methods() {
 Panel::Panel() {
 	// Has visible stylebox, so stop by default.
 	set_mouse_filter(MOUSE_FILTER_STOP);
-}
-
-Panel::~Panel() {
 }

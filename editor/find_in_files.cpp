@@ -86,11 +86,6 @@ static bool find_next(const String &line, String pattern, int from, bool match_c
 }
 
 //--------------------------------------------------------------------------------
-FindInFiles::FindInFiles() {
-	_searching = false;
-	_whole_words = true;
-	_match_case = true;
-}
 
 void FindInFiles::set_search_text(String p_pattern) {
 	_pattern = p_pattern;
@@ -388,7 +383,7 @@ FindInFilesDialog::FindInFilesDialog() {
 	_replace_button = add_button(TTR("Replace..."), false, "replace");
 	_replace_button->set_disabled(true);
 
-	Button *cancel_button = get_ok();
+	Button *cancel_button = get_ok_button();
 	cancel_button->set_text(TTR("Cancel"));
 
 	_mode = SEARCH_MODE;
@@ -571,6 +566,7 @@ FindInFilesPanel::FindInFilesPanel() {
 
 		_search_text_label = memnew(Label);
 		_search_text_label->add_theme_font_override("font", EditorNode::get_singleton()->get_gui_base()->get_theme_font("source", "EditorFonts"));
+		_search_text_label->add_theme_font_size_override("font_size", EditorNode::get_singleton()->get_gui_base()->get_theme_font_size("source_size", "EditorFonts"));
 		hbc->add_child(_search_text_label);
 
 		_progress_bar = memnew(ProgressBar);
@@ -599,6 +595,7 @@ FindInFilesPanel::FindInFilesPanel() {
 
 	_results_display = memnew(Tree);
 	_results_display->add_theme_font_override("font", EditorNode::get_singleton()->get_gui_base()->get_theme_font("source", "EditorFonts"));
+	_results_display->add_theme_font_size_override("font_size", EditorNode::get_singleton()->get_gui_base()->get_theme_font_size("source_size", "EditorFonts"));
 	_results_display->set_v_size_flags(SIZE_EXPAND_FILL);
 	_results_display->connect("item_selected", callable_mp(this, &FindInFilesPanel::_on_result_selected));
 	_results_display->connect("item_edited", callable_mp(this, &FindInFilesPanel::_on_item_edited));
@@ -755,10 +752,11 @@ void FindInFilesPanel::draw_result_text(Object *item_obj, Rect2 rect) {
 	Result r = E->value();
 	String item_text = item->get_text(_with_replace ? 1 : 0);
 	Ref<Font> font = _results_display->get_theme_font("font");
+	int font_size = _results_display->get_theme_font_size("font_size");
 
 	Rect2 match_rect = rect;
-	match_rect.position.x += font->get_string_size(item_text.left(r.begin_trimmed)).x;
-	match_rect.size.x = font->get_string_size(_search_text_label->get_text()).x;
+	match_rect.position.x += font->get_string_size(item_text.left(r.begin_trimmed), font_size).x;
+	match_rect.size.x = font->get_string_size(_search_text_label->get_text(), font_size).x;
 	match_rect.position.y += 1 * EDSCALE;
 	match_rect.size.y -= 2 * EDSCALE;
 
@@ -781,7 +779,19 @@ void FindInFilesPanel::_on_item_edited() {
 }
 
 void FindInFilesPanel::_on_finished() {
-	_status_label->set_text(TTR("Search complete"));
+	String results_text;
+	int result_count = _result_items.size();
+	int file_count = _file_items.size();
+
+	if (result_count == 1 && file_count == 1) {
+		results_text = vformat(TTR("%d match in %d file."), result_count, file_count);
+	} else if (result_count != 1 && file_count == 1) {
+		results_text = vformat(TTR("%d matches in %d file."), result_count, file_count);
+	} else {
+		results_text = vformat(TTR("%d matches in %d files."), result_count, file_count);
+	}
+
+	_status_label->set_text(results_text);
 	update_replace_buttons();
 	set_progress_visible(false);
 	_refresh_button->show();

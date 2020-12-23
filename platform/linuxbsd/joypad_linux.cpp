@@ -49,15 +49,6 @@
 static const char *ignore_str = "/dev/input/js";
 #endif
 
-JoypadLinux::Joypad::Joypad() {
-	fd = -1;
-	dpad = 0;
-	devpath = "";
-	for (int i = 0; i < MAX_ABS; i++) {
-		abs_info[i] = nullptr;
-	}
-}
-
 JoypadLinux::Joypad::~Joypad() {
 	for (int i = 0; i < MAX_ABS; i++) {
 		if (abs_info[i]) {
@@ -459,9 +450,9 @@ void JoypadLinux::process_joypads() {
 							case ABS_HAT0X:
 								if (ev.value != 0) {
 									if (ev.value < 0) {
-										joy->dpad |= Input::HAT_MASK_LEFT;
+										joy->dpad = (joy->dpad | Input::HAT_MASK_LEFT) & ~Input::HAT_MASK_RIGHT;
 									} else {
-										joy->dpad |= Input::HAT_MASK_RIGHT;
+										joy->dpad = (joy->dpad | Input::HAT_MASK_RIGHT) & ~Input::HAT_MASK_LEFT;
 									}
 								} else {
 									joy->dpad &= ~(Input::HAT_MASK_LEFT | Input::HAT_MASK_RIGHT);
@@ -473,9 +464,9 @@ void JoypadLinux::process_joypads() {
 							case ABS_HAT0Y:
 								if (ev.value != 0) {
 									if (ev.value < 0) {
-										joy->dpad |= Input::HAT_MASK_UP;
+										joy->dpad = (joy->dpad | Input::HAT_MASK_UP) & ~Input::HAT_MASK_DOWN;
 									} else {
-										joy->dpad |= Input::HAT_MASK_DOWN;
+										joy->dpad = (joy->dpad | Input::HAT_MASK_DOWN) & ~Input::HAT_MASK_UP;
 									}
 								} else {
 									joy->dpad &= ~(Input::HAT_MASK_UP | Input::HAT_MASK_DOWN);

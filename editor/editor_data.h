@@ -31,16 +31,15 @@
 #ifndef EDITOR_DATA_H
 #define EDITOR_DATA_H
 
-#include "core/list.h"
-#include "core/pair.h"
-#include "core/undo_redo.h"
+#include "core/object/undo_redo.h"
+#include "core/templates/list.h"
+#include "core/templates/pair.h"
 #include "editor/editor_plugin.h"
 #include "editor/plugins/script_editor_plugin.h"
 #include "scene/resources/texture.h"
 
 class EditorHistory {
 	enum {
-
 		HISTORY_MAX = 64
 	};
 
@@ -48,12 +47,12 @@ class EditorHistory {
 		REF ref;
 		ObjectID object;
 		String property;
-		bool inspector_only;
+		bool inspector_only = false;
 	};
 
 	struct History {
 		Vector<Obj> path;
-		int level;
+		int level = 0;
 	};
 	friend class EditorData;
 
@@ -110,14 +109,14 @@ public:
 	};
 
 	struct EditedScene {
-		Node *root;
+		Node *root = nullptr;
 		String path;
 		Dictionary editor_states;
 		List<Node *> selection;
 		Vector<EditorHistory::History> history_stored;
-		int history_current;
+		int history_current = 0;
 		Dictionary custom_state;
-		uint64_t version;
+		uint64_t version = 0;
 		NodePath live_edit_root;
 	};
 
@@ -191,7 +190,6 @@ public:
 	void set_scene_path(int p_idx, const String &p_path);
 	Ref<Script> get_scene_root_script(int p_idx) const;
 	void set_edited_scene_version(uint64_t version, int p_scene_idx = -1);
-	uint64_t get_edited_scene_version() const;
 	uint64_t get_scene_version(int p_idx) const;
 	void clear_edited_scenes();
 	void set_edited_scene_live_edit_root(const NodePath &p_root);

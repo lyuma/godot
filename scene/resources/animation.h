@@ -31,7 +31,9 @@
 #ifndef ANIMATION_H
 #define ANIMATION_H
 
-#include "core/resource.h"
+#include "core/io/resource.h"
+
+#define ANIM_MIN_LENGTH 0.001
 
 class Animation : public Resource {
 	GDCLASS(Animation, Resource);
@@ -293,7 +295,7 @@ public:
 	void track_set_key_time(int p_track, int p_key_idx, float p_time);
 	int track_find_key(int p_track, float p_time, bool p_exact = false) const;
 	void track_remove_key(int p_track, int p_idx);
-	void track_remove_key_at_position(int p_track, float p_pos);
+	void track_remove_key_at_time(int p_track, float p_time);
 	int track_get_key_count(int p_track) const;
 	Variant track_get_key_value(int p_track, int p_key_idx) const;
 	float track_get_key_time(int p_track, int p_key_idx) const;

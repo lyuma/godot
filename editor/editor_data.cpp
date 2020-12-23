@@ -30,10 +30,10 @@
 
 #include "editor_data.h"
 
+#include "core/config/project_settings.h"
 #include "core/io/resource_loader.h"
 #include "core/os/dir_access.h"
 #include "core/os/file_access.h"
-#include "core/project_settings.h"
 #include "editor_node.h"
 #include "editor_settings.h"
 #include "scene/resources/packed_scene.h"
@@ -689,11 +689,6 @@ void EditorData::set_edited_scene_version(uint64_t version, int p_scene_idx) {
 		ERR_FAIL_INDEX(p_scene_idx, edited_scene.size());
 		edited_scene.write[p_scene_idx].version = version;
 	}
-}
-
-uint64_t EditorData::get_edited_scene_version() const {
-	ERR_FAIL_INDEX_V(current_edited_scene, edited_scene.size(), 0);
-	return edited_scene[current_edited_scene].version;
 }
 
 uint64_t EditorData::get_scene_version(int p_idx) const {

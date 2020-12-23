@@ -34,7 +34,7 @@
 #ifdef MINIZIP_ENABLED
 
 #include "core/io/file_access_pack.h"
-#include "core/map.h"
+#include "core/templates/map.h"
 
 #include "thirdparty/minizip/unzip.h"
 
@@ -58,8 +58,6 @@ private:
 	Map<String, File> files;
 
 	static ZipArchive *instance;
-
-	FileAccess::CreateFunc fa_create_func;
 
 public:
 	void close_handle(unzFile p_file) const;

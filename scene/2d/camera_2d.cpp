@@ -30,7 +30,7 @@
 
 #include "camera_2d.h"
 
-#include "core/engine.h"
+#include "core/config/engine.h"
 #include "core/math/math_funcs.h"
 #include "scene/scene_string_names.h"
 #include "servers/rendering_server.h"
@@ -77,6 +77,9 @@ void Camera2D::_update_process_mode() {
 }
 
 void Camera2D::set_zoom(const Vector2 &p_zoom) {
+	// Setting zoom to zero causes 'affine_invert' issues
+	ERR_FAIL_COND_MSG(Math::is_zero_approx(p_zoom.x) || Math::is_zero_approx(p_zoom.y), "Zoom level must be different from 0 (can be negative).");
+
 	zoom = p_zoom;
 	Point2 old_smoothed_camera_pos = smoothed_camera_pos;
 	_update_scroll();
@@ -198,10 +201,10 @@ Transform2D Camera2D::get_camera_transform() {
 	camera_screen_center = screen_rect.position + screen_rect.size * 0.5;
 
 	Transform2D xform;
+	xform.scale_basis(zoom);
 	if (rotating) {
 		xform.set_rotation(angle);
 	}
-	xform.scale_basis(zoom);
 	xform.set_origin(screen_rect.position /*.floor()*/);
 
 	/*

@@ -32,8 +32,8 @@
 #define MAIN_LOOP_H
 
 #include "core/input/input_event.h"
-#include "core/reference.h"
-#include "core/script_language.h"
+#include "core/object/reference.h"
+#include "core/object/script_language.h"
 
 class MainLoop : public Object {
 	GDCLASS(MainLoop, Object);
@@ -56,6 +56,7 @@ public:
 		NOTIFICATION_APPLICATION_PAUSED = 2015,
 		NOTIFICATION_APPLICATION_FOCUS_IN = 2016,
 		NOTIFICATION_APPLICATION_FOCUS_OUT = 2017,
+		NOTIFICATION_TEXT_SERVER_CHANGED = 2018,
 	};
 
 	virtual void init();

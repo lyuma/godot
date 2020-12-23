@@ -236,7 +236,7 @@ private:
 	void _rename_operation_confirm();
 	void _duplicate_operation_confirm();
 	void _move_with_overwrite();
-	bool _check_existing();
+	Vector<String> _check_existing();
 	void _move_operation_confirm(const String &p_to_path, bool p_overwrite = false);
 
 	void _tree_rmb_option(int p_option);
@@ -270,8 +270,8 @@ private:
 		String path;
 		StringName type;
 		Vector<String> sources;
-		bool import_broken;
-		uint64_t modified_time;
+		bool import_broken = false;
+		uint64_t modified_time = 0;
 
 		bool operator<(const FileInfo &fi) const {
 			return NaturalNoCaseComparator()(name, fi.name);

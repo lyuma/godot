@@ -31,7 +31,7 @@
 #ifndef SCENE_TREE_EDITOR_H
 #define SCENE_TREE_EDITOR_H
 
-#include "core/undo_redo.h"
+#include "core/object/undo_redo.h"
 #include "editor_data.h"
 #include "editor_settings.h"
 #include "scene/gui/button.h"
@@ -138,7 +138,6 @@ public:
 
 	void set_undo_redo(UndoRedo *p_undo_redo) { undo_redo = p_undo_redo; };
 	void set_display_foreign_nodes(bool p_display);
-	bool get_display_foreign_nodes() const;
 
 	void set_marked(const Set<Node *> &p_marked, bool p_selectable = false, bool p_children_selectable = true);
 	void set_marked(Node *p_marked, bool p_selectable = false, bool p_children_selectable = true);

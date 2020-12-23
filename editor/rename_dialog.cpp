@@ -30,7 +30,7 @@
 
 #include "rename_dialog.h"
 
-#include "core/print_string.h"
+#include "core/string/print_string.h"
 #include "editor_node.h"
 #include "editor_scale.h"
 #include "editor_settings.h"
@@ -286,7 +286,7 @@ RenameDialog::RenameDialog(SceneTreeEditor *p_scene_tree_editor, UndoRedo *p_und
 	// ---- Dialog related
 
 	set_min_size(Size2(383, 0));
-	get_ok()->set_text(TTR("Rename"));
+	get_ok_button()->set_text(TTR("Rename"));
 	Button *but_reset = add_button(TTR("Reset"));
 
 	eh.errfunc = _error_handler;

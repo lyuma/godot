@@ -30,7 +30,7 @@
 
 #include "reparent_dialog.h"
 
-#include "core/print_string.h"
+#include "core/string/print_string.h"
 #include "scene/gui/box_container.h"
 #include "scene/gui/label.h"
 
@@ -87,7 +87,7 @@ ReparentDialog::ReparentDialog() {
 
 	//cancel->connect("pressed", this,"_cancel");
 
-	get_ok()->set_text(TTR("Reparent"));
+	get_ok_button()->set_text(TTR("Reparent"));
 }
 
 ReparentDialog::~ReparentDialog() {

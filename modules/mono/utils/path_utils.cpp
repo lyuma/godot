@@ -30,10 +30,10 @@
 
 #include "path_utils.h"
 
+#include "core/config/project_settings.h"
 #include "core/os/dir_access.h"
 #include "core/os/file_access.h"
 #include "core/os/os.h"
-#include "core/project_settings.h"
 
 #ifdef WINDOWS_ENABLED
 #include <windows.h>
@@ -194,5 +194,4 @@ String relative_to(const String &p_path, const String &p_relative_to) {
 
 	return relative_to_impl(path_abs_norm, relative_to_abs_norm);
 }
-
 } // namespace path

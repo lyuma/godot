@@ -32,9 +32,9 @@
 
 #include <mono/metadata/image.h>
 
+#include "core/config/project_settings.h"
 #include "core/io/file_access_pack.h"
 #include "core/os/os.h"
-#include "core/project_settings.h"
 
 #include "../mono_gd/gd_mono.h"
 #include "../mono_gd/gd_mono_assembly.h"
@@ -55,10 +55,10 @@ MonoAssemblyName *new_mono_assembly_name() {
 
 struct AssemblyRefInfo {
 	String name;
-	uint16_t major;
-	uint16_t minor;
-	uint16_t build;
-	uint16_t revision;
+	uint16_t major = 0;
+	uint16_t minor = 0;
+	uint16_t build = 0;
+	uint16_t revision = 0;
 };
 
 AssemblyRefInfo get_assemblyref_name(MonoImage *p_image, int index) {
@@ -141,5 +141,4 @@ Error get_exported_assembly_dependencies(const Dictionary &p_initial_assemblies,
 
 	return OK;
 }
-
 } // namespace GodotSharpExport

@@ -30,8 +30,8 @@
 
 #include "scene_tree_editor.h"
 
-#include "core/message_queue.h"
-#include "core/print_string.h"
+#include "core/object/message_queue.h"
+#include "core/string/print_string.h"
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
 #include "editor/node_dock.h"
@@ -827,10 +827,6 @@ String SceneTreeEditor::get_filter() const {
 void SceneTreeEditor::set_display_foreign_nodes(bool p_display) {
 	display_foreign = p_display;
 	_update_tree();
-}
-
-bool SceneTreeEditor::get_display_foreign_nodes() const {
-	return display_foreign;
 }
 
 void SceneTreeEditor::set_valid_types(const Vector<StringName> &p_valid) {

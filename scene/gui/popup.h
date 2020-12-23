@@ -33,13 +33,14 @@
 
 #include "scene/main/window.h"
 
-#include "core/local_vector.h"
+#include "core/templates/local_vector.h"
 
 class Popup : public Window {
 	GDCLASS(Popup, Window);
 
 	LocalVector<Window *> visible_parents;
 	bool popped_up = false;
+	bool close_on_parent_focus = true;
 
 	void _input_from_window(const Ref<InputEvent> &p_event);
 
@@ -57,6 +58,10 @@ protected:
 
 public:
 	void set_as_minsize();
+
+	void set_close_on_parent_focus(bool p_close);
+	bool get_close_on_parent_focus();
+
 	Popup();
 	~Popup();
 };

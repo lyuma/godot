@@ -30,18 +30,21 @@
 
 #include "control.h"
 
+#include "core/config/project_settings.h"
 #include "core/math/geometry_2d.h"
-#include "core/message_queue.h"
+#include "core/object/message_queue.h"
 #include "core/os/keyboard.h"
 #include "core/os/os.h"
-#include "core/print_string.h"
-#include "core/project_settings.h"
+#include "core/string/print_string.h"
+#include "core/string/translation.h"
+
 #include "scene/gui/label.h"
 #include "scene/gui/panel.h"
 #include "scene/main/canvas_layer.h"
 #include "scene/main/window.h"
 #include "scene/scene_string_names.h"
 #include "servers/rendering_server.h"
+#include "servers/text_server.h"
 
 #ifdef TOOLS_ENABLED
 #include "editor/editor_settings.h"
@@ -220,13 +223,6 @@ bool Control::_set(const StringName &p_name, const Variant &p_value) {
 			}
 			data.icon_override.erase(dname);
 			notification(NOTIFICATION_THEME_CHANGED);
-		} else if (name.begins_with("custom_shaders/")) {
-			String dname = name.get_slicec('/', 1);
-			if (data.shader_override.has(dname)) {
-				data.shader_override[dname]->disconnect("changed", callable_mp(this, &Control::_override_changed));
-			}
-			data.shader_override.erase(dname);
-			notification(NOTIFICATION_THEME_CHANGED);
 		} else if (name.begins_with("custom_styles/")) {
 			String dname = name.get_slicec('/', 1);
 			if (data.style_override.has(dname)) {
@@ -240,6 +236,10 @@ bool Control::_set(const StringName &p_name, const Variant &p_value) {
 				data.font_override[dname]->disconnect("changed", callable_mp(this, &Control::_override_changed));
 			}
 			data.font_override.erase(dname);
+			notification(NOTIFICATION_THEME_CHANGED);
+		} else if (name.begins_with("custom_font_sizes/")) {
+			String dname = name.get_slicec('/', 1);
+			data.font_size_override.erase(dname);
 			notification(NOTIFICATION_THEME_CHANGED);
 		} else if (name.begins_with("custom_colors/")) {
 			String dname = name.get_slicec('/', 1);
@@ -257,15 +257,15 @@ bool Control::_set(const StringName &p_name, const Variant &p_value) {
 		if (name.begins_with("custom_icons/")) {
 			String dname = name.get_slicec('/', 1);
 			add_theme_icon_override(dname, p_value);
-		} else if (name.begins_with("custom_shaders/")) {
-			String dname = name.get_slicec('/', 1);
-			add_theme_shader_override(dname, p_value);
 		} else if (name.begins_with("custom_styles/")) {
 			String dname = name.get_slicec('/', 1);
 			add_theme_style_override(dname, p_value);
 		} else if (name.begins_with("custom_fonts/")) {
 			String dname = name.get_slicec('/', 1);
 			add_theme_font_override(dname, p_value);
+		} else if (name.begins_with("custom_font_sizes/")) {
+			String dname = name.get_slicec('/', 1);
+			add_theme_font_size_override(dname, p_value);
 		} else if (name.begins_with("custom_colors/")) {
 			String dname = name.get_slicec('/', 1);
 			add_theme_color_override(dname, p_value);
@@ -307,20 +307,16 @@ bool Control::_get(const StringName &p_name, Variant &r_ret) const {
 
 	if (sname.begins_with("custom_icons/")) {
 		String name = sname.get_slicec('/', 1);
-
 		r_ret = data.icon_override.has(name) ? Variant(data.icon_override[name]) : Variant();
-	} else if (sname.begins_with("custom_shaders/")) {
-		String name = sname.get_slicec('/', 1);
-
-		r_ret = data.shader_override.has(name) ? Variant(data.shader_override[name]) : Variant();
 	} else if (sname.begins_with("custom_styles/")) {
 		String name = sname.get_slicec('/', 1);
-
 		r_ret = data.style_override.has(name) ? Variant(data.style_override[name]) : Variant();
 	} else if (sname.begins_with("custom_fonts/")) {
 		String name = sname.get_slicec('/', 1);
-
 		r_ret = data.font_override.has(name) ? Variant(data.font_override[name]) : Variant();
+	} else if (sname.begins_with("custom_font_sizes/")) {
+		String name = sname.get_slicec('/', 1);
+		r_ret = data.font_size_override.has(name) ? Variant(data.font_size_override[name]) : Variant();
 	} else if (sname.begins_with("custom_colors/")) {
 		String name = sname.get_slicec('/', 1);
 		r_ret = data.color_override.has(name) ? Variant(data.color_override[name]) : Variant();
@@ -339,7 +335,6 @@ void Control::_get_property_list(List<PropertyInfo> *p_list) const {
 	Ref<Theme> theme = Theme::get_default();
 	/* Using the default theme since the properties below are meant for editor only
 	if (data.theme.is_valid()) {
-
 		theme = data.theme;
 	} else {
 		theme = Theme::get_default();
@@ -356,18 +351,6 @@ void Control::_get_property_list(List<PropertyInfo> *p_list) const {
 			}
 
 			p_list->push_back(PropertyInfo(Variant::OBJECT, "custom_icons/" + E->get(), PROPERTY_HINT_RESOURCE_TYPE, "Texture2D", hint));
-		}
-	}
-	{
-		List<StringName> names;
-		theme->get_shader_list(get_class_name(), &names);
-		for (List<StringName>::Element *E = names.front(); E; E = E->next()) {
-			uint32_t hint = PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_CHECKABLE;
-			if (data.shader_override.has(E->get())) {
-				hint |= PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_CHECKED;
-			}
-
-			p_list->push_back(PropertyInfo(Variant::OBJECT, "custom_shaders/" + E->get(), PROPERTY_HINT_RESOURCE_TYPE, "Shader,VisualShader", hint));
 		}
 	}
 	{
@@ -392,6 +375,18 @@ void Control::_get_property_list(List<PropertyInfo> *p_list) const {
 			}
 
 			p_list->push_back(PropertyInfo(Variant::OBJECT, "custom_fonts/" + E->get(), PROPERTY_HINT_RESOURCE_TYPE, "Font", hint));
+		}
+	}
+	{
+		List<StringName> names;
+		theme->get_font_size_list(get_class_name(), &names);
+		for (List<StringName>::Element *E = names.front(); E; E = E->next()) {
+			uint32_t hint = PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_CHECKABLE;
+			if (data.font_size_override.has(E->get())) {
+				hint |= PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_CHECKED;
+			}
+
+			p_list->push_back(PropertyInfo(Variant::INT, "custom_font_sizes/" + E->get(), PROPERTY_HINT_NONE, "", hint));
 		}
 	}
 	{
@@ -424,8 +419,41 @@ Control *Control::get_parent_control() const {
 	return data.parent;
 }
 
-void Control::_resize(const Size2 &p_size) {
-	_size_changed();
+void Control::set_layout_direction(Control::LayoutDirection p_direction) {
+	ERR_FAIL_INDEX((int)p_direction, 4);
+
+	data.layout_dir = p_direction;
+	propagate_notification(NOTIFICATION_LAYOUT_DIRECTION_CHANGED);
+}
+
+Control::LayoutDirection Control::get_layout_direction() const {
+	return data.layout_dir;
+}
+
+bool Control::is_layout_rtl() const {
+	if (data.layout_dir == LAYOUT_DIRECTION_INHERITED) {
+		Window *parent_window = Object::cast_to<Window>(get_parent());
+		Control *parent_control = get_parent_control();
+		if (parent_control) {
+			return parent_control->is_layout_rtl();
+		} else if (parent_window) {
+			return parent_window->is_layout_rtl();
+		} else {
+			if (GLOBAL_GET("display/window/force_right_to_left_layout_direction")) {
+				return true;
+			}
+			String locale = TranslationServer::get_singleton()->get_tool_locale();
+			return TS->is_locale_right_to_left(locale);
+		}
+	} else if (data.layout_dir == LAYOUT_DIRECTION_LOCALE) {
+		if (GLOBAL_GET("display/window/force_right_to_left_layout_direction")) {
+			return true;
+		}
+		String locale = TranslationServer::get_singleton()->get_tool_locale();
+		return TS->is_locale_right_to_left(locale);
+	} else {
+		return (data.layout_dir == LAYOUT_DIRECTION_RTL);
+	}
 }
 
 //moved theme configuration here, so controls can set up even if still not inside active scene
@@ -582,7 +610,6 @@ void Control::_notification(int p_notification) {
 		case NOTIFICATION_FOCUS_EXIT: {
 			emit_signal(SceneStringNames::get_singleton()->focus_exited);
 			update();
-
 		} break;
 		case NOTIFICATION_THEME_CHANGED: {
 			minimum_size_changed();
@@ -601,6 +628,10 @@ void Control::_notification(int p_notification) {
 				_size_changed();
 			}
 
+		} break;
+		case NOTIFICATION_TRANSLATION_CHANGED:
+		case NOTIFICATION_LAYOUT_DIRECTION_CHANGED: {
+			_size_changed();
 		} break;
 	}
 }
@@ -728,13 +759,13 @@ Size2 Control::get_minimum_size() const {
 }
 
 template <class T>
-bool Control::_find_theme_item(Control *p_theme_owner, Window *p_theme_owner_window, T &r_ret, T (Theme::*get_func)(const StringName &, const StringName &) const, bool (Theme::*has_func)(const StringName &, const StringName &) const, const StringName &p_name, const StringName &p_type) {
+bool Control::_find_theme_item(Control *p_theme_owner, Window *p_theme_owner_window, T &r_ret, T (Theme::*get_func)(const StringName &, const StringName &) const, bool (Theme::*has_func)(const StringName &, const StringName &) const, const StringName &p_name, const StringName &p_node_type) {
 	// try with custom themes
 	Control *theme_owner = p_theme_owner;
 	Window *theme_owner_window = p_theme_owner_window;
 
 	while (theme_owner || theme_owner_window) {
-		StringName class_name = p_type;
+		StringName class_name = p_node_type;
 
 		while (class_name != StringName()) {
 			if (theme_owner && (theme_owner->data.theme.operator->()->*has_func)(p_name, class_name)) {
@@ -771,13 +802,13 @@ bool Control::_find_theme_item(Control *p_theme_owner, Window *p_theme_owner_win
 	return false;
 }
 
-bool Control::_has_theme_item(Control *p_theme_owner, Window *p_theme_owner_window, bool (Theme::*has_func)(const StringName &, const StringName &) const, const StringName &p_name, const StringName &p_type) {
+bool Control::_has_theme_item(Control *p_theme_owner, Window *p_theme_owner_window, bool (Theme::*has_func)(const StringName &, const StringName &) const, const StringName &p_name, const StringName &p_node_type) {
 	// try with custom themes
 	Control *theme_owner = p_theme_owner;
 	Window *theme_owner_window = p_theme_owner_window;
 
 	while (theme_owner || theme_owner_window) {
-		StringName class_name = p_type;
+		StringName class_name = p_node_type;
 
 		while (class_name != StringName()) {
 			if (theme_owner && (theme_owner->data.theme.operator->()->*has_func)(p_name, class_name)) {
@@ -812,186 +843,181 @@ bool Control::_has_theme_item(Control *p_theme_owner, Window *p_theme_owner_wind
 	return false;
 }
 
-Ref<Texture2D> Control::get_theme_icon(const StringName &p_name, const StringName &p_type) const {
-	if (p_type == StringName() || p_type == get_class_name()) {
+Ref<Texture2D> Control::get_theme_icon(const StringName &p_name, const StringName &p_node_type) const {
+	if (p_node_type == StringName() || p_node_type == get_class_name()) {
 		const Ref<Texture2D> *tex = data.icon_override.getptr(p_name);
 		if (tex) {
 			return *tex;
 		}
 	}
 
-	StringName type = p_type ? p_type : get_class_name();
+	StringName type = p_node_type ? p_node_type : get_class_name();
 
 	return get_icons(data.theme_owner, data.theme_owner_window, p_name, type);
 }
 
-Ref<Texture2D> Control::get_icons(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_type) {
+Ref<Texture2D> Control::get_icons(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_node_type) {
 	Ref<Texture2D> icon;
 
-	if (_find_theme_item(p_theme_owner, p_theme_owner_window, icon, &Theme::get_icon, &Theme::has_icon, p_name, p_type)) {
+	if (_find_theme_item(p_theme_owner, p_theme_owner_window, icon, &Theme::get_icon, &Theme::has_icon, p_name, p_node_type)) {
 		return icon;
 	}
 
 	if (Theme::get_project_default().is_valid()) {
-		if (Theme::get_project_default()->has_icon(p_name, p_type)) {
-			return Theme::get_project_default()->get_icon(p_name, p_type);
+		if (Theme::get_project_default()->has_icon(p_name, p_node_type)) {
+			return Theme::get_project_default()->get_icon(p_name, p_node_type);
 		}
 	}
 
-	return Theme::get_default()->get_icon(p_name, p_type);
+	return Theme::get_default()->get_icon(p_name, p_node_type);
 }
 
-Ref<Shader> Control::get_theme_shader(const StringName &p_name, const StringName &p_type) const {
-	if (p_type == StringName() || p_type == get_class_name()) {
-		const Ref<Shader> *sdr = data.shader_override.getptr(p_name);
-		if (sdr) {
-			return *sdr;
-		}
-	}
-
-	StringName type = p_type ? p_type : get_class_name();
-
-	return get_shaders(data.theme_owner, data.theme_owner_window, p_name, type);
-}
-
-Ref<Shader> Control::get_shaders(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_type) {
-	Ref<Shader> shader;
-
-	if (_find_theme_item(p_theme_owner, p_theme_owner_window, shader, &Theme::get_shader, &Theme::has_shader, p_name, p_type)) {
-		return shader;
-	}
-
-	if (Theme::get_project_default().is_valid()) {
-		if (Theme::get_project_default()->has_shader(p_name, p_type)) {
-			return Theme::get_project_default()->get_shader(p_name, p_type);
-		}
-	}
-
-	return Theme::get_default()->get_shader(p_name, p_type);
-}
-
-Ref<StyleBox> Control::get_theme_stylebox(const StringName &p_name, const StringName &p_type) const {
-	if (p_type == StringName() || p_type == get_class_name()) {
+Ref<StyleBox> Control::get_theme_stylebox(const StringName &p_name, const StringName &p_node_type) const {
+	if (p_node_type == StringName() || p_node_type == get_class_name()) {
 		const Ref<StyleBox> *style = data.style_override.getptr(p_name);
 		if (style) {
 			return *style;
 		}
 	}
 
-	StringName type = p_type ? p_type : get_class_name();
+	StringName type = p_node_type ? p_node_type : get_class_name();
 
 	return get_styleboxs(data.theme_owner, data.theme_owner_window, p_name, type);
 }
 
-Ref<StyleBox> Control::get_styleboxs(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_type) {
+Ref<StyleBox> Control::get_styleboxs(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_node_type) {
 	Ref<StyleBox> stylebox;
 
-	if (_find_theme_item(p_theme_owner, p_theme_owner_window, stylebox, &Theme::get_stylebox, &Theme::has_stylebox, p_name, p_type)) {
+	if (_find_theme_item(p_theme_owner, p_theme_owner_window, stylebox, &Theme::get_stylebox, &Theme::has_stylebox, p_name, p_node_type)) {
 		return stylebox;
 	}
 
 	if (Theme::get_project_default().is_valid()) {
-		if (Theme::get_project_default()->has_stylebox(p_name, p_type)) {
-			return Theme::get_project_default()->get_stylebox(p_name, p_type);
+		if (Theme::get_project_default()->has_stylebox(p_name, p_node_type)) {
+			return Theme::get_project_default()->get_stylebox(p_name, p_node_type);
 		}
 	}
 
-	return Theme::get_default()->get_stylebox(p_name, p_type);
+	return Theme::get_default()->get_stylebox(p_name, p_node_type);
 }
 
-Ref<Font> Control::get_theme_font(const StringName &p_name, const StringName &p_type) const {
-	if (p_type == StringName() || p_type == get_class_name()) {
+Ref<Font> Control::get_theme_font(const StringName &p_name, const StringName &p_node_type) const {
+	if (p_node_type == StringName() || p_node_type == get_class_name()) {
 		const Ref<Font> *font = data.font_override.getptr(p_name);
 		if (font) {
 			return *font;
 		}
 	}
 
-	StringName type = p_type ? p_type : get_class_name();
+	StringName type = p_node_type ? p_node_type : get_class_name();
 
 	return get_fonts(data.theme_owner, data.theme_owner_window, p_name, type);
 }
 
-Ref<Font> Control::get_fonts(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_type) {
+int Control::get_theme_font_size(const StringName &p_name, const StringName &p_node_type) const {
+	if (p_node_type == StringName() || p_node_type == get_class_name()) {
+		const int *font_size = data.font_size_override.getptr(p_name);
+		if (font_size) {
+			return *font_size;
+		}
+	}
+
+	StringName type = p_node_type ? p_node_type : get_class_name();
+
+	return get_font_sizes(data.theme_owner, data.theme_owner_window, p_name, type);
+}
+
+Ref<Font> Control::get_fonts(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_node_type) {
 	Ref<Font> font;
 
-	if (_find_theme_item(p_theme_owner, p_theme_owner_window, font, &Theme::get_font, &Theme::has_font, p_name, p_type)) {
+	if (_find_theme_item(p_theme_owner, p_theme_owner_window, font, &Theme::get_font, &Theme::has_font, p_name, p_node_type)) {
 		return font;
 	}
 
 	if (Theme::get_project_default().is_valid()) {
-		if (Theme::get_project_default()->has_font(p_name, p_type)) {
-			return Theme::get_project_default()->get_font(p_name, p_type);
+		if (Theme::get_project_default()->has_font(p_name, p_node_type)) {
+			return Theme::get_project_default()->get_font(p_name, p_node_type);
 		}
 	}
 
-	return Theme::get_default()->get_font(p_name, p_type);
+	return Theme::get_default()->get_font(p_name, p_node_type);
 }
 
-Color Control::get_theme_color(const StringName &p_name, const StringName &p_type) const {
-	if (p_type == StringName() || p_type == get_class_name()) {
+int Control::get_font_sizes(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_node_type) {
+	int font_size;
+
+	if (_find_theme_item(p_theme_owner, p_theme_owner_window, font_size, &Theme::get_font_size, &Theme::has_font_size, p_name, p_node_type)) {
+		return font_size;
+	}
+
+	if (Theme::get_project_default().is_valid()) {
+		if (Theme::get_project_default()->has_font_size(p_name, p_node_type)) {
+			return Theme::get_project_default()->get_font_size(p_name, p_node_type);
+		}
+	}
+
+	return Theme::get_default()->get_font_size(p_name, p_node_type);
+}
+
+Color Control::get_theme_color(const StringName &p_name, const StringName &p_node_type) const {
+	if (p_node_type == StringName() || p_node_type == get_class_name()) {
 		const Color *color = data.color_override.getptr(p_name);
 		if (color) {
 			return *color;
 		}
 	}
 
-	StringName type = p_type ? p_type : get_class_name();
+	StringName type = p_node_type ? p_node_type : get_class_name();
 
 	return get_colors(data.theme_owner, data.theme_owner_window, p_name, type);
 }
 
-Color Control::get_colors(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_type) {
+Color Control::get_colors(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_node_type) {
 	Color color;
 
-	if (_find_theme_item(p_theme_owner, p_theme_owner_window, color, &Theme::get_color, &Theme::has_color, p_name, p_type)) {
+	if (_find_theme_item(p_theme_owner, p_theme_owner_window, color, &Theme::get_color, &Theme::has_color, p_name, p_node_type)) {
 		return color;
 	}
 
 	if (Theme::get_project_default().is_valid()) {
-		if (Theme::get_project_default()->has_color(p_name, p_type)) {
-			return Theme::get_project_default()->get_color(p_name, p_type);
+		if (Theme::get_project_default()->has_color(p_name, p_node_type)) {
+			return Theme::get_project_default()->get_color(p_name, p_node_type);
 		}
 	}
-	return Theme::get_default()->get_color(p_name, p_type);
+	return Theme::get_default()->get_color(p_name, p_node_type);
 }
 
-int Control::get_theme_constant(const StringName &p_name, const StringName &p_type) const {
-	if (p_type == StringName() || p_type == get_class_name()) {
+int Control::get_theme_constant(const StringName &p_name, const StringName &p_node_type) const {
+	if (p_node_type == StringName() || p_node_type == get_class_name()) {
 		const int *constant = data.constant_override.getptr(p_name);
 		if (constant) {
 			return *constant;
 		}
 	}
 
-	StringName type = p_type ? p_type : get_class_name();
+	StringName type = p_node_type ? p_node_type : get_class_name();
 
 	return get_constants(data.theme_owner, data.theme_owner_window, p_name, type);
 }
 
-int Control::get_constants(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_type) {
+int Control::get_constants(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_node_type) {
 	int constant;
 
-	if (_find_theme_item(p_theme_owner, p_theme_owner_window, constant, &Theme::get_constant, &Theme::has_constant, p_name, p_type)) {
+	if (_find_theme_item(p_theme_owner, p_theme_owner_window, constant, &Theme::get_constant, &Theme::has_constant, p_name, p_node_type)) {
 		return constant;
 	}
 
 	if (Theme::get_project_default().is_valid()) {
-		if (Theme::get_project_default()->has_constant(p_name, p_type)) {
-			return Theme::get_project_default()->get_constant(p_name, p_type);
+		if (Theme::get_project_default()->has_constant(p_name, p_node_type)) {
+			return Theme::get_project_default()->get_constant(p_name, p_node_type);
 		}
 	}
-	return Theme::get_default()->get_constant(p_name, p_type);
+	return Theme::get_default()->get_constant(p_name, p_node_type);
 }
 
 bool Control::has_theme_icon_override(const StringName &p_name) const {
 	const Ref<Texture2D> *tex = data.icon_override.getptr(p_name);
 	return tex != nullptr;
-}
-
-bool Control::has_theme_shader_override(const StringName &p_name) const {
-	const Ref<Shader> *sdr = data.shader_override.getptr(p_name);
-	return sdr != nullptr;
 }
 
 bool Control::has_theme_stylebox_override(const StringName &p_name) const {
@@ -1004,6 +1030,11 @@ bool Control::has_theme_font_override(const StringName &p_name) const {
 	return font != nullptr;
 }
 
+bool Control::has_theme_font_size_override(const StringName &p_name) const {
+	const int *font_size = data.font_size_override.getptr(p_name);
+	return font_size != nullptr;
+}
+
 bool Control::has_theme_color_override(const StringName &p_name) const {
 	const Color *color = data.color_override.getptr(p_name);
 	return color != nullptr;
@@ -1014,154 +1045,154 @@ bool Control::has_theme_constant_override(const StringName &p_name) const {
 	return constant != nullptr;
 }
 
-bool Control::has_theme_icon(const StringName &p_name, const StringName &p_type) const {
-	if (p_type == StringName() || p_type == get_class_name()) {
+bool Control::has_theme_icon(const StringName &p_name, const StringName &p_node_type) const {
+	if (p_node_type == StringName() || p_node_type == get_class_name()) {
 		if (has_theme_icon_override(p_name)) {
 			return true;
 		}
 	}
 
-	StringName type = p_type ? p_type : get_class_name();
+	StringName type = p_node_type ? p_node_type : get_class_name();
 
 	return has_icons(data.theme_owner, data.theme_owner_window, p_name, type);
 }
 
-bool Control::has_icons(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_type) {
-	if (_has_theme_item(p_theme_owner, p_theme_owner_window, &Theme::has_icon, p_name, p_type)) {
+bool Control::has_icons(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_node_type) {
+	if (_has_theme_item(p_theme_owner, p_theme_owner_window, &Theme::has_icon, p_name, p_node_type)) {
 		return true;
 	}
 
 	if (Theme::get_project_default().is_valid()) {
-		if (Theme::get_project_default()->has_color(p_name, p_type)) {
+		if (Theme::get_project_default()->has_color(p_name, p_node_type)) {
 			return true;
 		}
 	}
-	return Theme::get_default()->has_icon(p_name, p_type);
+	return Theme::get_default()->has_icon(p_name, p_node_type);
 }
 
-bool Control::has_theme_shader(const StringName &p_name, const StringName &p_type) const {
-	if (p_type == StringName() || p_type == get_class_name()) {
-		if (has_theme_shader_override(p_name)) {
-			return true;
-		}
-	}
-
-	StringName type = p_type ? p_type : get_class_name();
-
-	return has_shaders(data.theme_owner, data.theme_owner_window, p_name, type);
-}
-
-bool Control::has_shaders(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_type) {
-	if (_has_theme_item(p_theme_owner, p_theme_owner_window, &Theme::has_shader, p_name, p_type)) {
-		return true;
-	}
-
-	if (Theme::get_project_default().is_valid()) {
-		if (Theme::get_project_default()->has_shader(p_name, p_type)) {
-			return true;
-		}
-	}
-	return Theme::get_default()->has_shader(p_name, p_type);
-}
-
-bool Control::has_theme_stylebox(const StringName &p_name, const StringName &p_type) const {
-	if (p_type == StringName() || p_type == get_class_name()) {
+bool Control::has_theme_stylebox(const StringName &p_name, const StringName &p_node_type) const {
+	if (p_node_type == StringName() || p_node_type == get_class_name()) {
 		if (has_theme_stylebox_override(p_name)) {
 			return true;
 		}
 	}
 
-	StringName type = p_type ? p_type : get_class_name();
+	StringName type = p_node_type ? p_node_type : get_class_name();
 
 	return has_styleboxs(data.theme_owner, data.theme_owner_window, p_name, type);
 }
 
-bool Control::has_styleboxs(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_type) {
-	if (_has_theme_item(p_theme_owner, p_theme_owner_window, &Theme::has_stylebox, p_name, p_type)) {
+bool Control::has_styleboxs(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_node_type) {
+	if (_has_theme_item(p_theme_owner, p_theme_owner_window, &Theme::has_stylebox, p_name, p_node_type)) {
 		return true;
 	}
 
 	if (Theme::get_project_default().is_valid()) {
-		if (Theme::get_project_default()->has_stylebox(p_name, p_type)) {
+		if (Theme::get_project_default()->has_stylebox(p_name, p_node_type)) {
 			return true;
 		}
 	}
-	return Theme::get_default()->has_stylebox(p_name, p_type);
+	return Theme::get_default()->has_stylebox(p_name, p_node_type);
 }
 
-bool Control::has_theme_font(const StringName &p_name, const StringName &p_type) const {
-	if (p_type == StringName() || p_type == get_class_name()) {
+bool Control::has_theme_font(const StringName &p_name, const StringName &p_node_type) const {
+	if (p_node_type == StringName() || p_node_type == get_class_name()) {
 		if (has_theme_font_override(p_name)) {
 			return true;
 		}
 	}
 
-	StringName type = p_type ? p_type : get_class_name();
+	StringName type = p_node_type ? p_node_type : get_class_name();
 
 	return has_fonts(data.theme_owner, data.theme_owner_window, p_name, type);
 }
 
-bool Control::has_fonts(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_type) {
-	if (_has_theme_item(p_theme_owner, p_theme_owner_window, &Theme::has_font, p_name, p_type)) {
+bool Control::has_fonts(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_node_type) {
+	if (_has_theme_item(p_theme_owner, p_theme_owner_window, &Theme::has_font, p_name, p_node_type)) {
 		return true;
 	}
 
 	if (Theme::get_project_default().is_valid()) {
-		if (Theme::get_project_default()->has_font(p_name, p_type)) {
+		if (Theme::get_project_default()->has_font(p_name, p_node_type)) {
 			return true;
 		}
 	}
-	return Theme::get_default()->has_font(p_name, p_type);
+	return Theme::get_default()->has_font(p_name, p_node_type);
 }
 
-bool Control::has_theme_color(const StringName &p_name, const StringName &p_type) const {
-	if (p_type == StringName() || p_type == get_class_name()) {
+bool Control::has_theme_font_size(const StringName &p_name, const StringName &p_node_type) const {
+	if (p_node_type == StringName() || p_node_type == get_class_name()) {
+		if (has_theme_font_size_override(p_name)) {
+			return true;
+		}
+	}
+
+	StringName type = p_node_type ? p_node_type : get_class_name();
+
+	return has_font_sizes(data.theme_owner, data.theme_owner_window, p_name, type);
+}
+
+bool Control::has_font_sizes(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_node_type) {
+	if (_has_theme_item(p_theme_owner, p_theme_owner_window, &Theme::has_font_size, p_name, p_node_type)) {
+		return true;
+	}
+
+	if (Theme::get_project_default().is_valid()) {
+		if (Theme::get_project_default()->has_font_size(p_name, p_node_type)) {
+			return true;
+		}
+	}
+	return Theme::get_default()->has_font_size(p_name, p_node_type);
+}
+
+bool Control::has_theme_color(const StringName &p_name, const StringName &p_node_type) const {
+	if (p_node_type == StringName() || p_node_type == get_class_name()) {
 		if (has_theme_color_override(p_name)) {
 			return true;
 		}
 	}
 
-	StringName type = p_type ? p_type : get_class_name();
+	StringName type = p_node_type ? p_node_type : get_class_name();
 
 	return has_colors(data.theme_owner, data.theme_owner_window, p_name, type);
 }
 
-bool Control::has_colors(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_type) {
-	if (_has_theme_item(p_theme_owner, p_theme_owner_window, &Theme::has_color, p_name, p_type)) {
+bool Control::has_colors(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_node_type) {
+	if (_has_theme_item(p_theme_owner, p_theme_owner_window, &Theme::has_color, p_name, p_node_type)) {
 		return true;
 	}
 
 	if (Theme::get_project_default().is_valid()) {
-		if (Theme::get_project_default()->has_color(p_name, p_type)) {
+		if (Theme::get_project_default()->has_color(p_name, p_node_type)) {
 			return true;
 		}
 	}
-	return Theme::get_default()->has_color(p_name, p_type);
+	return Theme::get_default()->has_color(p_name, p_node_type);
 }
 
-bool Control::has_theme_constant(const StringName &p_name, const StringName &p_type) const {
-	if (p_type == StringName() || p_type == get_class_name()) {
+bool Control::has_theme_constant(const StringName &p_name, const StringName &p_node_type) const {
+	if (p_node_type == StringName() || p_node_type == get_class_name()) {
 		if (has_theme_constant_override(p_name)) {
 			return true;
 		}
 	}
 
-	StringName type = p_type ? p_type : get_class_name();
+	StringName type = p_node_type ? p_node_type : get_class_name();
 
-	return has_constants(data.theme_owner, data.theme_owner_window, p_name, p_type);
+	return has_constants(data.theme_owner, data.theme_owner_window, p_name, p_node_type);
 }
 
-bool Control::has_constants(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_type) {
-	if (_has_theme_item(p_theme_owner, p_theme_owner_window, &Theme::has_constant, p_name, p_type)) {
+bool Control::has_constants(Control *p_theme_owner, Window *p_theme_owner_window, const StringName &p_name, const StringName &p_node_type) {
+	if (_has_theme_item(p_theme_owner, p_theme_owner_window, &Theme::has_constant, p_name, p_node_type)) {
 		return true;
 	}
 
 	if (Theme::get_project_default().is_valid()) {
-		if (Theme::get_project_default()->has_constant(p_name, p_type)) {
+		if (Theme::get_project_default()->has_constant(p_name, p_node_type)) {
 			return true;
 		}
 	}
-	return Theme::get_default()->has_constant(p_name, p_type);
+	return Theme::get_default()->has_constant(p_name, p_node_type);
 }
 
 Rect2 Control::get_parent_anchorable_rect() const {
@@ -1216,6 +1247,10 @@ void Control::_size_changed() {
 		}
 
 		new_size_cache.width = minimum_size.width;
+	}
+
+	if (is_layout_rtl()) {
+		new_pos_cache.x = parent_rect.size.x - new_pos_cache.x - new_size_cache.x;
 	}
 
 	if (minimum_size.height > new_size_cache.height) {
@@ -1427,6 +1462,10 @@ void Control::set_margins_preset(LayoutPreset p_preset, LayoutPresetMode p_resiz
 
 	Rect2 parent_rect = get_parent_anchorable_rect();
 
+	float x = parent_rect.size.x;
+	if (is_layout_rtl()) {
+		x = parent_rect.size.x - x - new_size.x;
+	}
 	//Left
 	switch (p_preset) {
 		case PRESET_TOP_LEFT:
@@ -1437,21 +1476,21 @@ void Control::set_margins_preset(LayoutPreset p_preset, LayoutPresetMode p_resiz
 		case PRESET_LEFT_WIDE:
 		case PRESET_HCENTER_WIDE:
 		case PRESET_WIDE:
-			data.margin[0] = parent_rect.size.x * (0.0 - data.anchor[0]) + p_margin + parent_rect.position.x;
+			data.margin[0] = x * (0.0 - data.anchor[0]) + p_margin + parent_rect.position.x;
 			break;
 
 		case PRESET_CENTER_TOP:
 		case PRESET_CENTER_BOTTOM:
 		case PRESET_CENTER:
 		case PRESET_VCENTER_WIDE:
-			data.margin[0] = parent_rect.size.x * (0.5 - data.anchor[0]) - new_size.x / 2 + parent_rect.position.x;
+			data.margin[0] = x * (0.5 - data.anchor[0]) - new_size.x / 2 + parent_rect.position.x;
 			break;
 
 		case PRESET_TOP_RIGHT:
 		case PRESET_BOTTOM_RIGHT:
 		case PRESET_CENTER_RIGHT:
 		case PRESET_RIGHT_WIDE:
-			data.margin[0] = parent_rect.size.x * (1.0 - data.anchor[0]) - new_size.x - p_margin + parent_rect.position.x;
+			data.margin[0] = x * (1.0 - data.anchor[0]) - new_size.x - p_margin + parent_rect.position.x;
 			break;
 	}
 
@@ -1489,14 +1528,14 @@ void Control::set_margins_preset(LayoutPreset p_preset, LayoutPresetMode p_resiz
 		case PRESET_BOTTOM_LEFT:
 		case PRESET_CENTER_LEFT:
 		case PRESET_LEFT_WIDE:
-			data.margin[2] = parent_rect.size.x * (0.0 - data.anchor[2]) + new_size.x + p_margin + parent_rect.position.x;
+			data.margin[2] = x * (0.0 - data.anchor[2]) + new_size.x + p_margin + parent_rect.position.x;
 			break;
 
 		case PRESET_CENTER_TOP:
 		case PRESET_CENTER_BOTTOM:
 		case PRESET_CENTER:
 		case PRESET_VCENTER_WIDE:
-			data.margin[2] = parent_rect.size.x * (0.5 - data.anchor[2]) + new_size.x / 2 + parent_rect.position.x;
+			data.margin[2] = x * (0.5 - data.anchor[2]) + new_size.x / 2 + parent_rect.position.x;
 			break;
 
 		case PRESET_TOP_RIGHT:
@@ -1507,7 +1546,7 @@ void Control::set_margins_preset(LayoutPreset p_preset, LayoutPresetMode p_resiz
 		case PRESET_BOTTOM_WIDE:
 		case PRESET_HCENTER_WIDE:
 		case PRESET_WIDE:
-			data.margin[2] = parent_rect.size.x * (1.0 - data.anchor[2]) - p_margin + parent_rect.position.x;
+			data.margin[2] = x * (1.0 - data.anchor[2]) - p_margin + parent_rect.position.x;
 			break;
 	}
 
@@ -1630,17 +1669,26 @@ void Control::_compute_anchors(Rect2 p_rect, const float p_margins[4], float (&r
 	ERR_FAIL_COND(parent_rect_size.x == 0.0);
 	ERR_FAIL_COND(parent_rect_size.y == 0.0);
 
-	r_anchors[0] = (p_rect.position.x - p_margins[0]) / parent_rect_size.x;
+	float x = p_rect.position.x;
+	if (is_layout_rtl()) {
+		x = parent_rect_size.x - x - p_rect.size.x;
+	}
+	r_anchors[0] = (x - p_margins[0]) / parent_rect_size.x;
 	r_anchors[1] = (p_rect.position.y - p_margins[1]) / parent_rect_size.y;
-	r_anchors[2] = (p_rect.position.x + p_rect.size.x - p_margins[2]) / parent_rect_size.x;
+	r_anchors[2] = (x + p_rect.size.x - p_margins[2]) / parent_rect_size.x;
 	r_anchors[3] = (p_rect.position.y + p_rect.size.y - p_margins[3]) / parent_rect_size.y;
 }
 
 void Control::_compute_margins(Rect2 p_rect, const float p_anchors[4], float (&r_margins)[4]) {
 	Size2 parent_rect_size = get_parent_anchorable_rect().size;
-	r_margins[0] = p_rect.position.x - (p_anchors[0] * parent_rect_size.x);
+
+	float x = p_rect.position.x;
+	if (is_layout_rtl()) {
+		x = parent_rect_size.x - x - p_rect.size.x;
+	}
+	r_margins[0] = x - (p_anchors[0] * parent_rect_size.x);
 	r_margins[1] = p_rect.position.y - (p_anchors[1] * parent_rect_size.y);
-	r_margins[2] = p_rect.position.x + p_rect.size.x - (p_anchors[2] * parent_rect_size.x);
+	r_margins[2] = x + p_rect.size.x - (p_anchors[2] * parent_rect_size.x);
 	r_margins[3] = p_rect.position.y + p_rect.size.y - (p_anchors[3] * parent_rect_size.y);
 }
 
@@ -1659,6 +1707,17 @@ void Control::set_position(const Size2 &p_point, bool p_keep_margins) {
 		_compute_margins(Rect2(p_point, data.size_cache), data.anchor, data.margin);
 	}
 	_size_changed();
+}
+
+void Control::set_rect(const Rect2 &p_rect) {
+	for (int i = 0; i < 4; i++) {
+		data.anchor[i] = ANCHOR_BEGIN;
+	}
+
+	_compute_margins(p_rect, data.anchor, data.margin);
+	if (is_inside_tree()) {
+		_size_changed();
+	}
 }
 
 void Control::_set_size(const Size2 &p_size) {
@@ -1744,23 +1803,6 @@ void Control::add_theme_icon_override(const StringName &p_name, const Ref<Textur
 	notification(NOTIFICATION_THEME_CHANGED);
 }
 
-void Control::add_theme_shader_override(const StringName &p_name, const Ref<Shader> &p_shader) {
-	if (data.shader_override.has(p_name)) {
-		data.shader_override[p_name]->disconnect("changed", callable_mp(this, &Control::_override_changed));
-	}
-
-	// clear if "null" is passed instead of a shader
-	if (p_shader.is_null()) {
-		data.shader_override.erase(p_name);
-	} else {
-		data.shader_override[p_name] = p_shader;
-		if (data.shader_override[p_name].is_valid()) {
-			data.shader_override[p_name]->connect("changed", callable_mp(this, &Control::_override_changed), Vector<Variant>(), CONNECT_REFERENCE_COUNTED);
-		}
-	}
-	notification(NOTIFICATION_THEME_CHANGED);
-}
-
 void Control::add_theme_style_override(const StringName &p_name, const Ref<StyleBox> &p_style) {
 	if (data.style_override.has(p_name)) {
 		data.style_override[p_name]->disconnect("changed", callable_mp(this, &Control::_override_changed));
@@ -1792,6 +1834,11 @@ void Control::add_theme_font_override(const StringName &p_name, const Ref<Font> 
 			data.font_override[p_name]->connect("changed", callable_mp(this, &Control::_override_changed), Vector<Variant>(), CONNECT_REFERENCE_COUNTED);
 		}
 	}
+	notification(NOTIFICATION_THEME_CHANGED);
+}
+
+void Control::add_theme_font_size_override(const StringName &p_name, int p_font_size) {
+	data.font_size_override[p_name] = p_font_size;
 	notification(NOTIFICATION_THEME_CHANGED);
 }
 
@@ -2159,14 +2206,14 @@ String Control::_get_tooltip() const {
 	return data.tooltip;
 }
 
-void Control::set_focus_neighbour(Margin p_margin, const NodePath &p_neighbour) {
+void Control::set_focus_neighbor(Margin p_margin, const NodePath &p_neighbor) {
 	ERR_FAIL_INDEX((int)p_margin, 4);
-	data.focus_neighbour[p_margin] = p_neighbour;
+	data.focus_neighbor[p_margin] = p_neighbor;
 }
 
-NodePath Control::get_focus_neighbour(Margin p_margin) const {
+NodePath Control::get_focus_neighbor(Margin p_margin) const {
 	ERR_FAIL_INDEX_V((int)p_margin, 4, NodePath());
-	return data.focus_neighbour[p_margin];
+	return data.focus_neighbor[p_margin];
 }
 
 void Control::set_focus_next(const NodePath &p_next) {
@@ -2185,17 +2232,17 @@ NodePath Control::get_focus_previous() const {
 	return data.focus_prev;
 }
 
-#define MAX_NEIGHBOUR_SEARCH_COUNT 512
+#define MAX_NEIGHBOR_SEARCH_COUNT 512
 
-Control *Control::_get_focus_neighbour(Margin p_margin, int p_count) {
+Control *Control::_get_focus_neighbor(Margin p_margin, int p_count) {
 	ERR_FAIL_INDEX_V((int)p_margin, 4, nullptr);
 
-	if (p_count >= MAX_NEIGHBOUR_SEARCH_COUNT) {
+	if (p_count >= MAX_NEIGHBOR_SEARCH_COUNT) {
 		return nullptr;
 	}
-	if (!data.focus_neighbour[p_margin].is_empty()) {
+	if (!data.focus_neighbor[p_margin].is_empty()) {
 		Control *c = nullptr;
-		Node *n = get_node(data.focus_neighbour[p_margin]);
+		Node *n = get_node(data.focus_neighbor[p_margin]);
 		if (n) {
 			c = Object::cast_to<Control>(n);
 			ERR_FAIL_COND_V_MSG(!c, nullptr, "Neighbor focus node is not a control: " + n->get_name() + ".");
@@ -2213,7 +2260,7 @@ Control *Control::_get_focus_neighbour(Margin p_margin, int p_count) {
 			return c;
 		}
 
-		c = c->_get_focus_neighbour(p_margin, p_count + 1);
+		c = c->_get_focus_neighbor(p_margin, p_count + 1);
 		return c;
 	}
 
@@ -2263,12 +2310,12 @@ Control *Control::_get_focus_neighbour(Margin p_margin, int p_count) {
 		return nullptr;
 	}
 
-	_window_find_focus_neighbour(vdir, base, points, maxd, dist, &result);
+	_window_find_focus_neighbor(vdir, base, points, maxd, dist, &result);
 
 	return result;
 }
 
-void Control::_window_find_focus_neighbour(const Vector2 &p_dir, Node *p_at, const Point2 *p_points, float p_min, float &r_closest_dist, Control **r_closest) {
+void Control::_window_find_focus_neighbor(const Vector2 &p_dir, Node *p_at, const Point2 *p_points, float p_min, float &r_closest_dist, Control **r_closest) {
 	if (Object::cast_to<Viewport>(p_at)) {
 		return; //bye
 	}
@@ -2321,7 +2368,7 @@ void Control::_window_find_focus_neighbour(const Vector2 &p_dir, Node *p_at, con
 		if (childc && childc->data.RI) {
 			continue; //subwindow, ignore
 		}
-		_window_find_focus_neighbour(p_dir, p_at->get_child(i), p_points, p_min, r_closest_dist, r_closest);
+		_window_find_focus_neighbor(p_dir, p_at->get_child(i), p_points, p_min, r_closest_dist, r_closest);
 	}
 }
 
@@ -2437,6 +2484,95 @@ bool Control::is_text_field() const {
 	return false;
 }
 
+Vector<Vector2i> Control::structured_text_parser(StructuredTextParser p_node_type, const Array &p_args, const String p_text) const {
+	Vector<Vector2i> ret;
+	switch (p_node_type) {
+		case STRUCTURED_TEXT_URI: {
+			int prev = 0;
+			for (int i = 0; i < p_text.length(); i++) {
+				if ((p_text[i] == '\\') || (p_text[i] == '/') || (p_text[i] == '.') || (p_text[i] == ':') || (p_text[i] == '&') || (p_text[i] == '=') || (p_text[i] == '@') || (p_text[i] == '?') || (p_text[i] == '#')) {
+					if (prev != i) {
+						ret.push_back(Vector2i(prev, i));
+					}
+					ret.push_back(Vector2i(i, i + 1));
+					prev = i + 1;
+				}
+			}
+			if (prev != p_text.length()) {
+				ret.push_back(Vector2i(prev, p_text.length()));
+			}
+		} break;
+		case STRUCTURED_TEXT_FILE: {
+			int prev = 0;
+			for (int i = 0; i < p_text.length(); i++) {
+				if ((p_text[i] == '\\') || (p_text[i] == '/') || (p_text[i] == ':')) {
+					if (prev != i) {
+						ret.push_back(Vector2i(prev, i));
+					}
+					ret.push_back(Vector2i(i, i + 1));
+					prev = i + 1;
+				}
+			}
+			if (prev != p_text.length()) {
+				ret.push_back(Vector2i(prev, p_text.length()));
+			}
+		} break;
+		case STRUCTURED_TEXT_EMAIL: {
+			bool local = true;
+			int prev = 0;
+			for (int i = 0; i < p_text.length(); i++) {
+				if ((p_text[i] == '@') && local) { // Add full "local" as single context.
+					local = false;
+					ret.push_back(Vector2i(prev, i));
+					ret.push_back(Vector2i(i, i + 1));
+					prev = i + 1;
+				} else if (!local & (p_text[i] == '.')) { // Add each dot separated "domain" part as context.
+					if (prev != i) {
+						ret.push_back(Vector2i(prev, i));
+					}
+					ret.push_back(Vector2i(i, i + 1));
+					prev = i + 1;
+				}
+			}
+			if (prev != p_text.length()) {
+				ret.push_back(Vector2i(prev, p_text.length()));
+			}
+		} break;
+		case STRUCTURED_TEXT_LIST: {
+			if (p_args.size() == 1 && p_args[0].get_type() == Variant::STRING) {
+				Vector<String> tags = p_text.split(String(p_args[0]));
+				int prev = 0;
+				for (int i = 0; i < tags.size(); i++) {
+					if (prev != i) {
+						ret.push_back(Vector2i(prev, prev + tags[i].length()));
+					}
+					ret.push_back(Vector2i(prev + tags[i].length(), prev + tags[i].length() + 1));
+					prev = prev + tags[i].length() + 1;
+				}
+			}
+		} break;
+		case STRUCTURED_TEXT_CUSTOM: {
+			if (get_script_instance()) {
+				Variant data = get_script_instance()->call(SceneStringNames::get_singleton()->_structured_text_parser, p_args, p_text);
+				if (data.get_type() == Variant::ARRAY) {
+					Array _data = data;
+					for (int i = 0; i < _data.size(); i++) {
+						if (_data[i].get_type() == Variant::VECTOR2I) {
+							ret.push_back(Vector2i(_data[i]));
+						}
+					}
+				}
+			}
+		} break;
+		case STRUCTURED_TEXT_NONE:
+		case STRUCTURED_TEXT_DEFAULT:
+		default: {
+			ret.push_back(Vector2i(0, p_text.length()));
+		}
+	}
+	return ret;
+}
+
 void Control::set_rotation(float p_radians) {
 	data.rotation = p_radians;
 	update();
@@ -2545,6 +2681,8 @@ void Control::get_argument_options(const StringName &p_function, int p_idx, List
 			Theme::get_default()->get_stylebox_list(get_class(), &sn);
 		} else if (pf == "add_font_override" || pf == "has_font" || pf == "has_font_override" || pf == "get_font") {
 			Theme::get_default()->get_font_list(get_class(), &sn);
+		} else if (pf == "add_font_size_override" || pf == "has_font_size" || pf == "has_font_size_override" || pf == "get_font_size") {
+			Theme::get_default()->get_font_size_list(get_class(), &sn);
 		} else if (pf == "add_constant_override" || pf == "has_constant" || pf == "has_constant_override" || pf == "get_constant") {
 			Theme::get_default()->get_constant_list(get_class(), &sn);
 		}
@@ -2662,30 +2800,32 @@ void Control::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_theme"), &Control::get_theme);
 
 	ClassDB::bind_method(D_METHOD("add_theme_icon_override", "name", "texture"), &Control::add_theme_icon_override);
-	ClassDB::bind_method(D_METHOD("add_theme_shader_override", "name", "shader"), &Control::add_theme_shader_override);
 	ClassDB::bind_method(D_METHOD("add_theme_stylebox_override", "name", "stylebox"), &Control::add_theme_style_override);
 	ClassDB::bind_method(D_METHOD("add_theme_font_override", "name", "font"), &Control::add_theme_font_override);
+	ClassDB::bind_method(D_METHOD("add_theme_font_size_override", "name", "font_size"), &Control::add_theme_font_size_override);
 	ClassDB::bind_method(D_METHOD("add_theme_color_override", "name", "color"), &Control::add_theme_color_override);
 	ClassDB::bind_method(D_METHOD("add_theme_constant_override", "name", "constant"), &Control::add_theme_constant_override);
 
-	ClassDB::bind_method(D_METHOD("get_theme_icon", "name", "type"), &Control::get_theme_icon, DEFVAL(""));
-	ClassDB::bind_method(D_METHOD("get_theme_stylebox", "name", "type"), &Control::get_theme_stylebox, DEFVAL(""));
-	ClassDB::bind_method(D_METHOD("get_theme_font", "name", "type"), &Control::get_theme_font, DEFVAL(""));
-	ClassDB::bind_method(D_METHOD("get_theme_color", "name", "type"), &Control::get_theme_color, DEFVAL(""));
-	ClassDB::bind_method(D_METHOD("get_theme_constant", "name", "type"), &Control::get_theme_constant, DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("get_theme_icon", "name", "node_type"), &Control::get_theme_icon, DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("get_theme_stylebox", "name", "node_type"), &Control::get_theme_stylebox, DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("get_theme_font", "name", "node_type"), &Control::get_theme_font, DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("get_theme_font_size", "name", "node_type"), &Control::get_theme_font_size, DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("get_theme_color", "name", "node_type"), &Control::get_theme_color, DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("get_theme_constant", "name", "node_type"), &Control::get_theme_constant, DEFVAL(""));
 
 	ClassDB::bind_method(D_METHOD("has_theme_icon_override", "name"), &Control::has_theme_icon_override);
-	ClassDB::bind_method(D_METHOD("has_theme_shader_override", "name"), &Control::has_theme_shader_override);
 	ClassDB::bind_method(D_METHOD("has_theme_stylebox_override", "name"), &Control::has_theme_stylebox_override);
 	ClassDB::bind_method(D_METHOD("has_theme_font_override", "name"), &Control::has_theme_font_override);
+	ClassDB::bind_method(D_METHOD("has_theme_font_size_override", "name"), &Control::has_theme_font_size_override);
 	ClassDB::bind_method(D_METHOD("has_theme_color_override", "name"), &Control::has_theme_color_override);
 	ClassDB::bind_method(D_METHOD("has_theme_constant_override", "name"), &Control::has_theme_constant_override);
 
-	ClassDB::bind_method(D_METHOD("has_theme_icon", "name", "type"), &Control::has_theme_icon, DEFVAL(""));
-	ClassDB::bind_method(D_METHOD("has_theme_stylebox", "name", "type"), &Control::has_theme_stylebox, DEFVAL(""));
-	ClassDB::bind_method(D_METHOD("has_theme_font", "name", "type"), &Control::has_theme_font, DEFVAL(""));
-	ClassDB::bind_method(D_METHOD("has_theme_color", "name", "type"), &Control::has_theme_color, DEFVAL(""));
-	ClassDB::bind_method(D_METHOD("has_theme_constant", "name", "type"), &Control::has_theme_constant, DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("has_theme_icon", "name", "node_type"), &Control::has_theme_icon, DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("has_theme_stylebox", "name", "node_type"), &Control::has_theme_stylebox, DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("has_theme_font", "name", "node_type"), &Control::has_theme_font, DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("has_theme_font_size", "name", "node_type"), &Control::has_theme_font_size, DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("has_theme_color", "name", "node_type"), &Control::has_theme_color, DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("has_theme_constant", "name", "node_type"), &Control::has_theme_constant, DEFVAL(""));
 
 	ClassDB::bind_method(D_METHOD("get_parent_control"), &Control::get_parent_control);
 
@@ -2703,8 +2843,8 @@ void Control::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_default_cursor_shape"), &Control::get_default_cursor_shape);
 	ClassDB::bind_method(D_METHOD("get_cursor_shape", "position"), &Control::get_cursor_shape, DEFVAL(Point2()));
 
-	ClassDB::bind_method(D_METHOD("set_focus_neighbour", "margin", "neighbour"), &Control::set_focus_neighbour);
-	ClassDB::bind_method(D_METHOD("get_focus_neighbour", "margin"), &Control::get_focus_neighbour);
+	ClassDB::bind_method(D_METHOD("set_focus_neighbor", "margin", "neighbor"), &Control::set_focus_neighbor);
+	ClassDB::bind_method(D_METHOD("get_focus_neighbor", "margin"), &Control::get_focus_neighbor);
 
 	ClassDB::bind_method(D_METHOD("set_focus_next", "next"), &Control::set_focus_next);
 	ClassDB::bind_method(D_METHOD("get_focus_next"), &Control::get_focus_next);
@@ -2728,6 +2868,12 @@ void Control::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("warp_mouse", "to_position"), &Control::warp_mouse);
 
 	ClassDB::bind_method(D_METHOD("minimum_size_changed"), &Control::minimum_size_changed);
+
+	ClassDB::bind_method(D_METHOD("set_layout_direction", "direction"), &Control::set_layout_direction);
+	ClassDB::bind_method(D_METHOD("get_layout_direction"), &Control::get_layout_direction);
+	ClassDB::bind_method(D_METHOD("is_layout_rtl"), &Control::is_layout_rtl);
+
+	BIND_VMETHOD(MethodInfo("_structured_text_parser", PropertyInfo(Variant::ARRAY, "args"), PropertyInfo(Variant::STRING, "text")));
 
 	BIND_VMETHOD(MethodInfo("_gui_input", PropertyInfo(Variant::OBJECT, "event", PROPERTY_HINT_RESOURCE_TYPE, "InputEvent")));
 	BIND_VMETHOD(MethodInfo(Variant::VECTOR2, "_get_minimum_size"));
@@ -2759,6 +2905,9 @@ void Control::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "grow_horizontal", PROPERTY_HINT_ENUM, "Begin,End,Both"), "set_h_grow_direction", "get_h_grow_direction");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "grow_vertical", PROPERTY_HINT_ENUM, "Begin,End,Both"), "set_v_grow_direction", "get_v_grow_direction");
 
+	ADD_GROUP("Layout Direction", "layout_");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "layout_direction", PROPERTY_HINT_ENUM, "Inherited,Locale,Left-to-right,Right-to-left"), "set_layout_direction", "get_layout_direction");
+
 	ADD_GROUP("Rect", "rect_");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "rect_position", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR), "_set_position", "get_position");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "rect_global_position", PROPERTY_HINT_NONE, "", 0), "_set_global_position", "get_global_position");
@@ -2773,10 +2922,10 @@ void Control::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "hint_tooltip", PROPERTY_HINT_MULTILINE_TEXT), "set_tooltip", "_get_tooltip");
 
 	ADD_GROUP("Focus", "focus_");
-	ADD_PROPERTYI(PropertyInfo(Variant::NODE_PATH, "focus_neighbour_left", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_neighbour", "get_focus_neighbour", MARGIN_LEFT);
-	ADD_PROPERTYI(PropertyInfo(Variant::NODE_PATH, "focus_neighbour_top", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_neighbour", "get_focus_neighbour", MARGIN_TOP);
-	ADD_PROPERTYI(PropertyInfo(Variant::NODE_PATH, "focus_neighbour_right", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_neighbour", "get_focus_neighbour", MARGIN_RIGHT);
-	ADD_PROPERTYI(PropertyInfo(Variant::NODE_PATH, "focus_neighbour_bottom", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_neighbour", "get_focus_neighbour", MARGIN_BOTTOM);
+	ADD_PROPERTYI(PropertyInfo(Variant::NODE_PATH, "focus_neighbor_left", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_neighbor", "get_focus_neighbor", MARGIN_LEFT);
+	ADD_PROPERTYI(PropertyInfo(Variant::NODE_PATH, "focus_neighbor_top", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_neighbor", "get_focus_neighbor", MARGIN_TOP);
+	ADD_PROPERTYI(PropertyInfo(Variant::NODE_PATH, "focus_neighbor_right", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_neighbor", "get_focus_neighbor", MARGIN_RIGHT);
+	ADD_PROPERTYI(PropertyInfo(Variant::NODE_PATH, "focus_neighbor_bottom", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_neighbor", "get_focus_neighbor", MARGIN_BOTTOM);
 	ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "focus_next", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_next", "get_focus_next");
 	ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "focus_previous", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_previous", "get_focus_previous");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "focus_mode", PROPERTY_HINT_ENUM, "None,Click,All"), "set_focus_mode", "get_focus_mode");
@@ -2805,6 +2954,7 @@ void Control::_bind_methods() {
 	BIND_CONSTANT(NOTIFICATION_THEME_CHANGED);
 	BIND_CONSTANT(NOTIFICATION_SCROLL_BEGIN);
 	BIND_CONSTANT(NOTIFICATION_SCROLL_END);
+	BIND_CONSTANT(NOTIFICATION_LAYOUT_DIRECTION_CHANGED);
 
 	BIND_ENUM_CONSTANT(CURSOR_ARROW);
 	BIND_ENUM_CONSTANT(CURSOR_IBEAM);
@@ -2863,6 +3013,24 @@ void Control::_bind_methods() {
 	BIND_ENUM_CONSTANT(ANCHOR_BEGIN);
 	BIND_ENUM_CONSTANT(ANCHOR_END);
 
+	BIND_ENUM_CONSTANT(LAYOUT_DIRECTION_INHERITED);
+	BIND_ENUM_CONSTANT(LAYOUT_DIRECTION_LOCALE);
+	BIND_ENUM_CONSTANT(LAYOUT_DIRECTION_LTR);
+	BIND_ENUM_CONSTANT(LAYOUT_DIRECTION_RTL);
+
+	BIND_ENUM_CONSTANT(TEXT_DIRECTION_INHERITED);
+	BIND_ENUM_CONSTANT(TEXT_DIRECTION_AUTO);
+	BIND_ENUM_CONSTANT(TEXT_DIRECTION_LTR);
+	BIND_ENUM_CONSTANT(TEXT_DIRECTION_RTL);
+
+	BIND_ENUM_CONSTANT(STRUCTURED_TEXT_DEFAULT);
+	BIND_ENUM_CONSTANT(STRUCTURED_TEXT_URI);
+	BIND_ENUM_CONSTANT(STRUCTURED_TEXT_FILE);
+	BIND_ENUM_CONSTANT(STRUCTURED_TEXT_EMAIL);
+	BIND_ENUM_CONSTANT(STRUCTURED_TEXT_LIST);
+	BIND_ENUM_CONSTANT(STRUCTURED_TEXT_NONE);
+	BIND_ENUM_CONSTANT(STRUCTURED_TEXT_CUSTOM);
+
 	ADD_SIGNAL(MethodInfo("resized"));
 	ADD_SIGNAL(MethodInfo("gui_input", PropertyInfo(Variant::OBJECT, "event", PROPERTY_HINT_RESOURCE_TYPE, "InputEvent")));
 	ADD_SIGNAL(MethodInfo("mouse_entered"));
@@ -2874,38 +3042,4 @@ void Control::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("theme_changed"));
 
 	BIND_VMETHOD(MethodInfo(Variant::BOOL, "has_point", PropertyInfo(Variant::VECTOR2, "point")));
-}
-
-Control::Control() {
-	data.parent = nullptr;
-
-	data.mouse_filter = MOUSE_FILTER_STOP;
-
-	data.RI = nullptr;
-	data.theme_owner = nullptr;
-	data.theme_owner_window = nullptr;
-	data.default_cursor = CURSOR_ARROW;
-	data.h_size_flags = SIZE_FILL;
-	data.v_size_flags = SIZE_FILL;
-	data.expand = 1;
-	data.rotation = 0;
-	data.parent_canvas_item = nullptr;
-	data.scale = Vector2(1, 1);
-
-	data.block_minimum_size_adjust = false;
-	data.disable_visibility_clip = false;
-	data.h_grow = GROW_DIRECTION_END;
-	data.v_grow = GROW_DIRECTION_END;
-	data.minimum_size_valid = false;
-	data.updating_last_minimum_size = false;
-
-	data.clip_contents = false;
-	for (int i = 0; i < 4; i++) {
-		data.anchor[i] = ANCHOR_BEGIN;
-		data.margin[i] = 0;
-	}
-	data.focus_mode = FOCUS_NONE;
-}
-
-Control::~Control() {
 }

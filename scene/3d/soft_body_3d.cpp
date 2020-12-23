@@ -30,10 +30,10 @@
 
 #include "soft_body_3d.h"
 
-#include "core/class_db.h"
-#include "core/list.h"
+#include "core/object/class_db.h"
 #include "core/os/os.h"
-#include "core/rid.h"
+#include "core/templates/list.h"
+#include "core/templates/rid.h"
 #include "scene/3d/collision_object_3d.h"
 #include "scene/3d/physics_body_3d.h"
 #include "scene/3d/skeleton_3d.h"
@@ -480,7 +480,6 @@ void SoftBody3D::become_mesh_owner() {
 		Dictionary surface_lods = mesh->surface_get_lods(0);
 		uint32_t surface_format = mesh->surface_get_format(0);
 
-		surface_format &= ~(Mesh::ARRAY_COMPRESS_NORMAL);
 		surface_format |= Mesh::ARRAY_FLAG_USE_DYNAMIC_UPDATE;
 
 		Ref<ArrayMesh> soft_mesh;
@@ -725,7 +724,7 @@ void SoftBody3D::_update_cache_pin_points_datas() {
 			w[i].spatial_attachment = Object::cast_to<Node3D>(get_node(w[i].spatial_attachment_path));
 		}
 		if (!w[i].spatial_attachment) {
-			ERR_PRINT("Node3D node not defined in the pinned point, Softbody undefined behaviour!");
+			ERR_PRINT("Node3D node not defined in the pinned point, this is undefined behavior for SoftBody3D!");
 		}
 	}
 }

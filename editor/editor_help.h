@@ -32,7 +32,7 @@
 #define EDITOR_HELP_H
 
 #include "editor/code_editor.h"
-#include "editor/doc_data.h"
+#include "editor/doc_tools.h"
 #include "editor/editor_plugin.h"
 #include "scene/gui/margin_container.h"
 #include "scene/gui/menu_button.h"
@@ -91,7 +91,6 @@ class EditorHelp : public VBoxContainer {
 	GDCLASS(EditorHelp, VBoxContainer);
 
 	enum Page {
-
 		PAGE_CLASS_LIST,
 		PAGE_CLASS_DESC,
 		PAGE_CLASS_PREV,
@@ -119,7 +118,7 @@ class EditorHelp : public VBoxContainer {
 
 	RichTextLabel *class_desc;
 	HSplitContainer *h_split;
-	static DocData *doc;
+	static DocTools *doc;
 
 	ConfirmationDialog *search_dialog;
 	LineEdit *search;
@@ -159,8 +158,6 @@ class EditorHelp : public VBoxContainer {
 	void _request_help(const String &p_string);
 	void _search(bool p_search_previous = false);
 
-	void _unhandled_key_input(const Ref<InputEvent> &p_ev);
-
 	String _fix_constant(const String &p_constant) const;
 
 protected:
@@ -169,10 +166,11 @@ protected:
 
 public:
 	static void generate_doc();
-	static DocData *get_doc_data() { return doc; }
+	static DocTools *get_doc_data() { return doc; }
 
 	void go_to_help(const String &p_help);
 	void go_to_class(const String &p_class, int p_scroll = 0);
+	void update_doc();
 
 	Vector<Pair<String, int>> get_sections();
 	void scroll_to_section(int p_section_index);

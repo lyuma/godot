@@ -32,7 +32,7 @@
 #define VISUAL_INSTANCE_H
 
 #include "core/math/face3.h"
-#include "core/rid.h"
+#include "core/templates/rid.h"
 #include "scene/3d/node_3d.h"
 #include "scene/resources/material.h"
 
@@ -112,6 +112,8 @@ private:
 	float lod_min_hysteresis;
 	float lod_max_hysteresis;
 
+	float lod_bias;
+
 	mutable HashMap<StringName, Variant> instance_uniforms;
 	mutable HashMap<StringName, StringName> instance_uniform_property_remap;
 
@@ -150,6 +152,9 @@ public:
 
 	void set_extra_cull_margin(float p_margin);
 	float get_extra_cull_margin() const;
+
+	void set_lod_bias(float p_bias);
+	float get_lod_bias() const;
 
 	void set_gi_mode(GIMode p_mode);
 	GIMode get_gi_mode() const;

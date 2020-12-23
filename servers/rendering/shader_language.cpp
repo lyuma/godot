@@ -30,7 +30,7 @@
 
 #include "shader_language.h"
 #include "core/os/os.h"
-#include "core/print_string.h"
+#include "core/string/print_string.h"
 #include "servers/rendering_server.h"
 
 static bool _is_text_char(char32_t c) {
@@ -223,7 +223,7 @@ const char *ShaderLanguage::token_names[TK_MAX] = {
 
 String ShaderLanguage::get_token_text(Token p_token) {
 	String name = token_names[p_token.type];
-	if (p_token.type == TK_INT_CONSTANT || p_token.type == TK_REAL_CONSTANT) {
+	if (p_token.type == TK_INT_CONSTANT || p_token.type == TK_FLOAT_CONSTANT) {
 		name += "(" + rtos(p_token.constant) + ")";
 	} else if (p_token.type == TK_IDENTIFIER) {
 		name += "(" + String(p_token.text) + ")";
@@ -637,7 +637,7 @@ ShaderLanguage::Token ShaderLanguage::_get_token() {
 					char_idx += str.length();
 					Token tk;
 					if (period_found || exponent_found || float_suffix_found) {
-						tk.type = TK_REAL_CONSTANT;
+						tk.type = TK_FLOAT_CONSTANT;
 					} else {
 						tk.type = TK_INT_CONSTANT;
 					}
@@ -2157,7 +2157,6 @@ const ShaderLanguage::BuiltinFuncDef ShaderLanguage::builtin_func_defs[] = {
 	{ "fma", TYPE_VEC4, { TYPE_VEC4, TYPE_VEC4, TYPE_VEC4, TYPE_VOID }, TAG_GLOBAL, false },
 
 	{ nullptr, TYPE_VOID, { TYPE_VOID }, TAG_GLOBAL, false }
-
 };
 
 const ShaderLanguage::BuiltinFuncOutArgs ShaderLanguage::builtin_func_out_args[] = {
@@ -2165,6 +2164,91 @@ const ShaderLanguage::BuiltinFuncOutArgs ShaderLanguage::builtin_func_out_args[]
 	{ "modf", 1 },
 	{ nullptr, 0 }
 };
+
+bool ShaderLanguage::_validate_out_argument(BlockNode *p_block, const FunctionInfo &p_function_info, OperatorNode *p_func, StringName p_name, int p_arg_idx) {
+	if (p_func->arguments[p_arg_idx + 1]->type != Node::TYPE_VARIABLE && p_func->arguments[p_arg_idx + 1]->type != Node::TYPE_MEMBER && p_func->arguments[p_arg_idx + 1]->type != Node::TYPE_ARRAY) {
+		_set_error("Argument " + itos(p_arg_idx + 1) + " of function '" + String(p_name) + "' is not a variable, array or member.");
+		return false;
+	}
+
+	bool fail = false;
+	if (p_func->arguments[p_arg_idx + 1]->type == Node::TYPE_ARRAY) {
+		ArrayNode *mn = static_cast<ArrayNode *>(p_func->arguments[p_arg_idx + 1]);
+		if (mn->is_const) {
+			fail = true;
+		}
+	} else if (p_func->arguments[p_arg_idx + 1]->type == Node::TYPE_MEMBER) {
+		MemberNode *mn = static_cast<MemberNode *>(p_func->arguments[p_arg_idx + 1]);
+		if (mn->basetype_const) {
+			fail = true;
+		}
+	} else { // TYPE_VARIABLE
+		VariableNode *vn = static_cast<VariableNode *>(p_func->arguments[p_arg_idx + 1]);
+		if (vn->is_const) {
+			fail = true;
+		} else {
+			StringName varname = vn->name;
+			if (shader->uniforms.has(varname)) {
+				fail = true;
+			} else {
+				if (p_function_info.built_ins.has(varname)) {
+					BuiltInInfo info = p_function_info.built_ins[varname];
+					if (info.constant) {
+						fail = true;
+					}
+				}
+			}
+		}
+	}
+	if (fail) {
+		_set_error("Constant value cannot be passed for argument " + itos(p_arg_idx + 1) + " of function '" + String(p_name) + "'.");
+		return false;
+	}
+
+	StringName var_name;
+	if (p_func->arguments[p_arg_idx + 1]->type == Node::TYPE_ARRAY) {
+		var_name = static_cast<const ArrayNode *>(p_func->arguments[p_arg_idx + 1])->name;
+	} else if (p_func->arguments[p_arg_idx + 1]->type == Node::TYPE_MEMBER) {
+		Node *n = static_cast<const MemberNode *>(p_func->arguments[p_arg_idx + 1])->owner;
+		while (n->type == Node::TYPE_MEMBER) {
+			n = static_cast<const MemberNode *>(n)->owner;
+		}
+		if (n->type != Node::TYPE_VARIABLE && n->type != Node::TYPE_ARRAY) {
+			_set_error("Argument " + itos(p_arg_idx + 1) + " of function '" + String(p_name) + "' is not a variable, array or member.");
+			return false;
+		}
+		if (n->type == Node::TYPE_VARIABLE) {
+			var_name = static_cast<const VariableNode *>(n)->name;
+		} else { // TYPE_ARRAY
+			var_name = static_cast<const ArrayNode *>(n)->name;
+		}
+	} else { // TYPE_VARIABLE
+		var_name = static_cast<const VariableNode *>(p_func->arguments[p_arg_idx + 1])->name;
+	}
+	const BlockNode *b = p_block;
+	bool valid = false;
+	while (b) {
+		if (b->variables.has(var_name) || p_function_info.built_ins.has(var_name)) {
+			valid = true;
+			break;
+		}
+		if (b->parent_function) {
+			for (int i = 0; i < b->parent_function->arguments.size(); i++) {
+				if (b->parent_function->arguments[i].name == var_name) {
+					valid = true;
+					break;
+				}
+			}
+		}
+		b = b->parent_block;
+	}
+
+	if (!valid) {
+		_set_error("Argument " + itos(p_arg_idx + 1) + " of function '" + String(p_name) + "' can only take a local variable, array or member.");
+		return false;
+	}
+	return true;
+}
 
 bool ShaderLanguage::_validate_function_call(BlockNode *p_block, const FunctionInfo &p_function_info, OperatorNode *p_func, DataType *r_ret_type, StringName *r_ret_type_str) {
 	ERR_FAIL_COND_V(p_func->op != OP_CALL && p_func->op != OP_CONSTRUCT, false);
@@ -2196,6 +2280,11 @@ bool ShaderLanguage::_validate_function_call(BlockNode *p_block, const FunctionI
 				_set_error(vformat("Invalid argument type when calling stage function '%s', type expected is '%s'.", String(name), String(get_datatype_name(sf.arguments[i].type))));
 				return false;
 			}
+			if (sf.arguments[i].qualifier != ARGUMENT_QUALIFIER_IN) {
+				if (!_validate_out_argument(p_block, p_function_info, p_func, name, i)) {
+					return false;
+				}
+			}
 		}
 
 		if (r_ret_type) {
@@ -2211,7 +2300,7 @@ bool ShaderLanguage::_validate_function_call(BlockNode *p_block, const FunctionI
 	bool unsupported_builtin = false;
 	int builtin_idx = 0;
 
-	if (argcount <= 4) {
+	if (argcount <= BuiltinFuncDef::MAX_ARGS - 1) {
 		// test builtins
 		int idx = 0;
 
@@ -2243,7 +2332,7 @@ bool ShaderLanguage::_validate_function_call(BlockNode *p_block, const FunctionI
 					}
 				}
 
-				if (!fail && argcount < 4 && builtin_func_defs[idx].args[argcount] != TYPE_VOID) {
+				if (!fail && argcount < BuiltinFuncDef::MAX_ARGS - 1 && builtin_func_defs[idx].args[argcount] != TYPE_VOID) {
 					fail = true; //make sure the number of arguments matches
 				}
 
@@ -2255,84 +2344,7 @@ bool ShaderLanguage::_validate_function_call(BlockNode *p_block, const FunctionI
 							int arg_idx = builtin_func_out_args[outarg_idx].argument;
 
 							if (arg_idx < argcount) {
-								if (p_func->arguments[arg_idx + 1]->type != Node::TYPE_VARIABLE && p_func->arguments[arg_idx + 1]->type != Node::TYPE_MEMBER && p_func->arguments[arg_idx + 1]->type != Node::TYPE_ARRAY) {
-									_set_error("Argument " + itos(arg_idx + 1) + " of function '" + String(name) + "' is not a variable, array or member.");
-									return false;
-								}
-
-								if (p_func->arguments[arg_idx + 1]->type == Node::TYPE_ARRAY) {
-									ArrayNode *mn = static_cast<ArrayNode *>(p_func->arguments[arg_idx + 1]);
-									if (mn->is_const) {
-										fail = true;
-									}
-								} else if (p_func->arguments[arg_idx + 1]->type == Node::TYPE_MEMBER) {
-									MemberNode *mn = static_cast<MemberNode *>(p_func->arguments[arg_idx + 1]);
-									if (mn->basetype_const) {
-										fail = true;
-									}
-								} else { // TYPE_VARIABLE
-									VariableNode *vn = static_cast<VariableNode *>(p_func->arguments[arg_idx + 1]);
-									if (vn->is_const) {
-										fail = true;
-									} else {
-										StringName varname = vn->name;
-										if (shader->uniforms.has(varname)) {
-											fail = true;
-										} else {
-											if (p_function_info.built_ins.has(varname)) {
-												BuiltInInfo info = p_function_info.built_ins[varname];
-												if (info.constant) {
-													fail = true;
-												}
-											}
-										}
-									}
-								}
-								if (fail) {
-									_set_error(vformat("Constant value cannot be passed for '%s' parameter!", "out"));
-									return false;
-								}
-
-								StringName var_name;
-								if (p_func->arguments[arg_idx + 1]->type == Node::TYPE_ARRAY) {
-									var_name = static_cast<const ArrayNode *>(p_func->arguments[arg_idx + 1])->name;
-								} else if (p_func->arguments[arg_idx + 1]->type == Node::TYPE_MEMBER) {
-									Node *n = static_cast<const MemberNode *>(p_func->arguments[arg_idx + 1])->owner;
-									while (n->type == Node::TYPE_MEMBER) {
-										n = static_cast<const MemberNode *>(n)->owner;
-									}
-									if (n->type != Node::TYPE_VARIABLE && n->type != Node::TYPE_ARRAY) {
-										_set_error("Argument " + itos(arg_idx + 1) + " of function '" + String(name) + "' is not a variable, array or member.");
-										return false;
-									}
-									if (n->type == Node::TYPE_VARIABLE) {
-										var_name = static_cast<const VariableNode *>(n)->name;
-									} else { // TYPE_ARRAY
-										var_name = static_cast<const ArrayNode *>(n)->name;
-									}
-								} else { // TYPE_VARIABLE
-									var_name = static_cast<const VariableNode *>(p_func->arguments[arg_idx + 1])->name;
-								}
-								const BlockNode *b = p_block;
-								bool valid = false;
-								while (b) {
-									if (b->variables.has(var_name) || p_function_info.built_ins.has(var_name)) {
-										valid = true;
-										break;
-									}
-									if (b->parent_function) {
-										for (int i = 0; i < b->parent_function->arguments.size(); i++) {
-											if (b->parent_function->arguments[i].name == var_name) {
-												valid = true;
-												break;
-											}
-										}
-									}
-									b = b->parent_block;
-								}
-
-								if (!valid) {
-									_set_error("Argument " + itos(arg_idx + 1) + " of function '" + String(name) + "' can only take a local variable, array or member.");
+								if (!_validate_out_argument(p_block, p_function_info, p_func, name, arg_idx)) {
 									return false;
 								}
 							}
@@ -3175,7 +3187,7 @@ bool ShaderLanguage::_validate_assign(Node *p_node, const FunctionInfo &p_functi
 }
 
 bool ShaderLanguage::_propagate_function_call_sampler_uniform_settings(StringName p_name, int p_argument, TextureFilter p_filter, TextureRepeat p_repeat) {
-	for (int i = 0; shader->functions.size(); i++) {
+	for (int i = 0; i < shader->functions.size(); i++) {
 		if (shader->functions[i].name == p_name) {
 			ERR_FAIL_INDEX_V(p_argument, shader->functions[i].function->arguments.size(), false);
 			FunctionNode::Argument *arg = &shader->functions[i].function->arguments.write[p_argument];
@@ -3209,7 +3221,7 @@ bool ShaderLanguage::_propagate_function_call_sampler_uniform_settings(StringNam
 }
 
 bool ShaderLanguage::_propagate_function_call_sampler_builtin_reference(StringName p_name, int p_argument, const StringName &p_builtin) {
-	for (int i = 0; shader->functions.size(); i++) {
+	for (int i = 0; i < shader->functions.size(); i++) {
 		if (shader->functions[i].name == p_name) {
 			ERR_FAIL_INDEX_V(p_argument, shader->functions[i].function->arguments.size(), false);
 			FunctionNode::Argument *arg = &shader->functions[i].function->arguments.write[p_argument];
@@ -3270,7 +3282,7 @@ ShaderLanguage::Node *ShaderLanguage::_parse_expression(BlockNode *p_block, cons
 				return nullptr;
 			}
 
-		} else if (tk.type == TK_REAL_CONSTANT) {
+		} else if (tk.type == TK_FLOAT_CONSTANT) {
 			ConstantNode *constant = alloc_node<ConstantNode>();
 			ConstantNode::Value v;
 			v.real = tk.constant;
@@ -6261,7 +6273,7 @@ Error ShaderLanguage::_parse_shader(const Map<StringName, FunctionInfo> &p_funct
 									tk = _get_token();
 								}
 
-								if (tk.type != TK_REAL_CONSTANT && tk.type != TK_INT_CONSTANT) {
+								if (tk.type != TK_FLOAT_CONSTANT && tk.type != TK_INT_CONSTANT) {
 									_set_error("Expected integer constant");
 									return ERR_PARSE_ERROR;
 								}
@@ -6285,7 +6297,7 @@ Error ShaderLanguage::_parse_shader(const Map<StringName, FunctionInfo> &p_funct
 									tk = _get_token();
 								}
 
-								if (tk.type != TK_REAL_CONSTANT && tk.type != TK_INT_CONSTANT) {
+								if (tk.type != TK_FLOAT_CONSTANT && tk.type != TK_INT_CONSTANT) {
 									_set_error("Expected integer constant after ','");
 									return ERR_PARSE_ERROR;
 								}
@@ -6298,7 +6310,7 @@ Error ShaderLanguage::_parse_shader(const Map<StringName, FunctionInfo> &p_funct
 								if (tk.type == TK_COMMA) {
 									tk = _get_token();
 
-									if (tk.type != TK_REAL_CONSTANT && tk.type != TK_INT_CONSTANT) {
+									if (tk.type != TK_FLOAT_CONSTANT && tk.type != TK_INT_CONSTANT) {
 										_set_error("Expected integer constant after ','");
 										return ERR_PARSE_ERROR;
 									}
@@ -7457,7 +7469,12 @@ Error ShaderLanguage::complete(const String &p_code, const Map<StringName, Funct
 							if (i == completion_argument) {
 								calltip += char32_t(0xFFFF);
 							}
-
+							if (E->get().arguments[i].qualifier == ARGUMENT_QUALIFIER_INOUT) {
+								calltip += "inout ";
+							}
+							if (E->get().arguments[i].qualifier == ARGUMENT_QUALIFIER_OUT) {
+								calltip += "out ";
+							}
 							calltip += get_datatype_name(E->get().arguments[i].type);
 							calltip += " ";
 							calltip += E->get().arguments[i].name;

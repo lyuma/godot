@@ -32,7 +32,7 @@
 
 #include "core/math/geometry_3d.h"
 #include "core/math/quick_hull.h"
-#include "core/sort_array.h"
+#include "core/templates/sort_array.h"
 
 #define _POINT_SNAP 0.001953125
 #define _EDGE_IS_VALID_SUPPORT_THRESHOLD 0.0002
@@ -333,7 +333,6 @@ void BoxShape3DSW::get_supports(const Vector3 &p_normal, int p_max, Vector3 *r_s
 			int i_n2 = next2[i];
 
 			static const real_t sign[4][2] = {
-
 				{ -1.0, 1.0 },
 				{ 1.0, 1.0 },
 				{ 1.0, -1.0 },

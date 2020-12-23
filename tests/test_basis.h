@@ -33,7 +33,7 @@
 
 #include "core/math/random_number_generator.h"
 #include "core/os/os.h"
-#include "core/ustring.h"
+#include "core/string/ustring.h"
 
 #include "tests/test_macros.h"
 
@@ -282,7 +282,6 @@ TEST_CASE("[Stress][Basis] Euler conversions") {
 		}
 	}
 }
-
 } // namespace TestBasis
 
 #endif

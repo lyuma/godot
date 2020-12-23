@@ -30,9 +30,9 @@
 
 #include "visual_script.h"
 
+#include "core/config/project_settings.h"
 #include "core/core_string_names.h"
 #include "core/os/os.h"
-#include "core/project_settings.h"
 #include "scene/main/node.h"
 #include "visual_script_nodes.h"
 
@@ -84,10 +84,10 @@ void VisualScriptNode::validate_input_default_values() {
 			Callable::CallError ce;
 			Variant existing = default_input_values[i];
 			const Variant *existingp = &existing;
-			default_input_values[i] = Variant::construct(expected, &existingp, 1, ce, false);
+			Variant::construct(expected, default_input_values[i], &existingp, 1, ce);
 			if (ce.error != Callable::CallError::CALL_OK) {
 				//could not convert? force..
-				default_input_values[i] = Variant::construct(expected, nullptr, 0, ce, false);
+				Variant::construct(expected, default_input_values[i], nullptr, 0, ce);
 			}
 		}
 	}
@@ -2367,7 +2367,7 @@ void VisualScriptFunctionState::connect_to_signal(Object *p_obj, const String &p
 		binds.push_back(p_binds[i]);
 	}
 	binds.push_back(Ref<VisualScriptFunctionState>(this)); //add myself on the back to avoid dying from unreferencing
-	p_obj->connect_compat(p_signal, this, "_signal_callback", binds, CONNECT_ONESHOT);
+	p_obj->connect(p_signal, Callable(this, "_signal_callback"), binds, CONNECT_ONESHOT);
 }
 
 bool VisualScriptFunctionState::is_valid() const {
@@ -2635,7 +2635,6 @@ void VisualScriptLanguage::debug_get_stack_level_locals(int p_level, List<String
 
     f->debug_get_stack_member_state(*_call_stack[l].line,&locals);
     for( List<Pair<StringName,int> >::Element *E = locals.front();E;E=E->next() ) {
-
 	p_locals->push_back(E->get().first);
 	p_values->push_back(_call_stack[l].stack[E->get().second]);
     }

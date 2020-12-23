@@ -31,8 +31,8 @@
 #ifndef DIR_ACCESS_H
 #define DIR_ACCESS_H
 
+#include "core/string/ustring.h"
 #include "core/typedefs.h"
-#include "core/ustring.h"
 
 //@ TODO, excellent candidate for THREAD_SAFE MACRO, should go through all these and add THREAD_SAFE where it applies
 class DirAccess {
@@ -57,7 +57,6 @@ protected:
 	String _get_root_string() const;
 
 	String fix_path(String p_path) const;
-	bool next_is_dir;
 
 	template <class T>
 	static DirAccess *_create_builtin() {

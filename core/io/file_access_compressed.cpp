@@ -30,7 +30,7 @@
 
 #include "file_access_compressed.h"
 
-#include "core/print_string.h"
+#include "core/string/print_string.h"
 
 void FileAccessCompressed::configure(const String &p_magic, Compression::Mode p_mode, int p_block_size) {
 	magic = p_magic.ascii().get_data();
@@ -327,14 +327,14 @@ Error FileAccessCompressed::get_error() const {
 
 void FileAccessCompressed::flush() {
 	ERR_FAIL_COND_MSG(!f, "File must be opened before use.");
-	ERR_FAIL_COND_MSG(!writing, "File has not been opened in read mode.");
+	ERR_FAIL_COND_MSG(!writing, "File has not been opened in write mode.");
 
 	// compressed files keep data in memory till close()
 }
 
 void FileAccessCompressed::store_8(uint8_t p_dest) {
 	ERR_FAIL_COND_MSG(!f, "File must be opened before use.");
-	ERR_FAIL_COND_MSG(!writing, "File has not been opened in read mode.");
+	ERR_FAIL_COND_MSG(!writing, "File has not been opened in write mode.");
 
 	WRITE_FIT(1);
 	write_ptr[write_pos++] = p_dest;

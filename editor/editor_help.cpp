@@ -40,7 +40,7 @@
 
 #define CONTRIBUTE_URL "https://docs.godotengine.org/en/latest/community/contributing/updating_the_class_reference.html"
 
-DocData *EditorHelp::doc = nullptr;
+DocTools *EditorHelp::doc = nullptr;
 
 void EditorHelp::_init_colors() {
 	title_color = get_theme_color("accent_color", "Editor");
@@ -54,19 +54,6 @@ void EditorHelp::_init_colors() {
 	type_color = get_theme_color("accent_color", "Editor").lerp(text_color, 0.5);
 	class_desc->add_theme_color_override("selection_color", get_theme_color("accent_color", "Editor") * Color(1, 1, 1, 0.4));
 	class_desc->add_theme_constant_override("line_separation", Math::round(5 * EDSCALE));
-}
-
-void EditorHelp::_unhandled_key_input(const Ref<InputEvent> &p_ev) {
-	if (!is_visible_in_tree()) {
-		return;
-	}
-
-	Ref<InputEventKey> k = p_ev;
-
-	if (k.is_valid() && k->get_control() && k->get_keycode() == KEY_F) {
-		search->grab_focus();
-		search->select_all();
-	}
 }
 
 void EditorHelp::_search(bool p_search_previous) {
@@ -168,7 +155,8 @@ void EditorHelp::_class_desc_resized() {
 	// Add extra horizontal margins for better readability.
 	// The margins increase as the width of the editor help container increases.
 	Ref<Font> doc_code_font = get_theme_font("doc_source", "EditorFonts");
-	real_t char_width = doc_code_font->get_char_size('x').width;
+	int font_size = get_theme_font_size("doc_source_size", "EditorFonts");
+	real_t char_width = doc_code_font->get_char_size('x', 0, font_size).width;
 	const int display_margin = MAX(30 * EDSCALE, get_parent_anchorable_rect().size.width - char_width * 120 * EDSCALE) * 0.5;
 
 	Ref<StyleBox> class_desc_stylebox = EditorNode::get_singleton()->get_theme_base()->get_theme_stylebox("normal", "RichTextLabel")->duplicate();
@@ -242,7 +230,7 @@ void EditorHelp::_add_method(const DocData::MethodDoc &p_method, bool p_overview
 
 	if (p_overview) {
 		class_desc->push_cell();
-		class_desc->push_align(RichTextLabel::ALIGN_RIGHT);
+		class_desc->push_paragraph(RichTextLabel::ALIGN_RIGHT, Control::TEXT_DIRECTION_AUTO, "");
 	} else {
 		static const char32_t prefix[3] = { 0x25CF /* filled circle */, ' ', 0 };
 		class_desc->add_text(String(prefix));
@@ -400,7 +388,7 @@ void EditorHelp::_update_doc() {
 	}
 
 	// Descendents
-	if (ClassDB::class_exists(cd.name)) {
+	if (cd.is_script_doc || ClassDB::class_exists(cd.name)) {
 		bool found = false;
 		bool prev = false;
 
@@ -506,7 +494,19 @@ void EditorHelp::_update_doc() {
 	Set<String> skip_methods;
 	bool property_descr = false;
 
-	if (cd.properties.size()) {
+	bool has_properties = cd.properties.size() != 0;
+	if (cd.is_script_doc) {
+		has_properties = false;
+		for (int i = 0; i < cd.properties.size(); i++) {
+			if (cd.properties[i].name.begins_with("_") && cd.properties[i].description.empty()) {
+				continue;
+			}
+			has_properties = true;
+			break;
+		}
+	}
+
+	if (has_properties) {
 		section_line.push_back(Pair<String, int>(TTR("Properties"), class_desc->get_line_count() - 2));
 		class_desc->push_color(title_color);
 		class_desc->push_font(doc_title_font);
@@ -521,10 +521,14 @@ void EditorHelp::_update_doc() {
 		class_desc->set_table_column_expand(1, true);
 
 		for (int i = 0; i < cd.properties.size(); i++) {
+			// Ignore undocumented private.
+			if (cd.properties[i].name.begins_with("_") && cd.properties[i].description.empty()) {
+				continue;
+			}
 			property_line[cd.properties[i].name] = class_desc->get_line_count() - 2; //gets overridden if description
 
 			class_desc->push_cell();
-			class_desc->push_align(RichTextLabel::ALIGN_RIGHT);
+			class_desc->push_paragraph(RichTextLabel::ALIGN_RIGHT, Control::TEXT_DIRECTION_AUTO, "");
 			class_desc->push_font(doc_code_font);
 			_add_type(cd.properties[i].type, cd.properties[i].enumeration);
 			class_desc->pop();
@@ -577,6 +581,32 @@ void EditorHelp::_update_doc() {
 				class_desc->pop();
 			}
 
+			if (cd.is_script_doc && (cd.properties[i].setter != "" || cd.properties[i].getter != "")) {
+				class_desc->push_color(symbol_color);
+				class_desc->add_text(" [" + TTR("property:") + " ");
+				class_desc->pop(); // color
+
+				if (cd.properties[i].setter != "") {
+					class_desc->push_color(value_color);
+					class_desc->add_text("setter");
+					class_desc->pop(); // color
+				}
+				if (cd.properties[i].getter != "") {
+					if (cd.properties[i].setter != "") {
+						class_desc->push_color(symbol_color);
+						class_desc->add_text(", ");
+						class_desc->pop(); // color
+					}
+					class_desc->push_color(value_color);
+					class_desc->add_text("getter");
+					class_desc->pop(); // color
+				}
+
+				class_desc->push_color(symbol_color);
+				class_desc->add_text("]");
+				class_desc->pop(); // color
+			}
+
 			class_desc->pop();
 			class_desc->pop();
 
@@ -601,6 +631,10 @@ void EditorHelp::_update_doc() {
 			if (cd.methods[i].arguments.size() == 0 /* getter */ || (cd.methods[i].arguments.size() == 1 && cd.methods[i].return_type == "void" /* setter */)) {
 				continue;
 			}
+		}
+		// Ignore undocumented private.
+		if (cd.methods[i].name.begins_with("_") && cd.methods[i].description.empty()) {
+			continue;
 		}
 		methods.push_back(cd.methods[i]);
 	}
@@ -695,7 +729,7 @@ void EditorHelp::_update_doc() {
 			theme_property_line[cd.theme_properties[i].name] = class_desc->get_line_count() - 2; //gets overridden if description
 
 			class_desc->push_cell();
-			class_desc->push_align(RichTextLabel::ALIGN_RIGHT);
+			class_desc->push_paragraph(RichTextLabel::ALIGN_RIGHT, Control::TEXT_DIRECTION_AUTO, "");
 			class_desc->push_font(doc_code_font);
 			_add_type(cd.theme_properties[i].type);
 			class_desc->pop();
@@ -814,13 +848,17 @@ void EditorHelp::_update_doc() {
 		Vector<DocData::ConstantDoc> constants;
 
 		for (int i = 0; i < cd.constants.size(); i++) {
-			if (cd.constants[i].enumeration != String()) {
+			if (!cd.constants[i].enumeration.empty()) {
 				if (!enums.has(cd.constants[i].enumeration)) {
 					enums[cd.constants[i].enumeration] = Vector<DocData::ConstantDoc>();
 				}
 
 				enums[cd.constants[i].enumeration].push_back(cd.constants[i]);
 			} else {
+				// Ignore undocumented private.
+				if (cd.constants[i].name.begins_with("_") && cd.constants[i].description.empty()) {
+					continue;
+				}
 				constants.push_back(cd.constants[i]);
 			}
 		}
@@ -859,6 +897,19 @@ void EditorHelp::_update_doc() {
 
 				class_desc->add_newline();
 				class_desc->add_newline();
+
+				// Enum description.
+				if (e != "@unnamed_enums" && cd.enums.has(e)) {
+					class_desc->push_color(text_color);
+					class_desc->push_font(doc_font);
+					class_desc->push_indent(1);
+					_add_text(cd.enums[e]);
+					class_desc->pop();
+					class_desc->pop();
+					class_desc->pop();
+					class_desc->add_newline();
+					class_desc->add_newline();
+				}
 
 				class_desc->push_indent(1);
 				Vector<DocData::ConstantDoc> enum_list = E->get();
@@ -1030,60 +1081,89 @@ void EditorHelp::_update_doc() {
 				class_desc->pop(); // color
 			}
 
+			if (cd.is_script_doc && (cd.properties[i].setter != "" || cd.properties[i].getter != "")) {
+				class_desc->push_color(symbol_color);
+				class_desc->add_text(" [" + TTR("property:") + " ");
+				class_desc->pop(); // color
+
+				if (cd.properties[i].setter != "") {
+					class_desc->push_color(value_color);
+					class_desc->add_text("setter");
+					class_desc->pop(); // color
+				}
+				if (cd.properties[i].getter != "") {
+					if (cd.properties[i].setter != "") {
+						class_desc->push_color(symbol_color);
+						class_desc->add_text(", ");
+						class_desc->pop(); // color
+					}
+					class_desc->push_color(value_color);
+					class_desc->add_text("getter");
+					class_desc->pop(); // color
+				}
+
+				class_desc->push_color(symbol_color);
+				class_desc->add_text("]");
+				class_desc->pop(); // color
+			}
+
 			class_desc->pop(); // font
 			class_desc->pop(); // cell
 
-			Map<String, DocData::MethodDoc> method_map;
-			for (int j = 0; j < methods.size(); j++) {
-				method_map[methods[j].name] = methods[j];
-			}
-
-			if (cd.properties[i].setter != "") {
-				class_desc->push_cell();
-				class_desc->pop(); // cell
-
-				class_desc->push_cell();
-				class_desc->push_font(doc_code_font);
-				class_desc->push_color(text_color);
-				if (method_map[cd.properties[i].setter].arguments.size() > 1) {
-					// Setters with additional arguments are exposed in the method list, so we link them here for quick access.
-					class_desc->push_meta("@method " + cd.properties[i].setter);
-					class_desc->add_text(cd.properties[i].setter + TTR("(value)"));
-					class_desc->pop();
-				} else {
-					class_desc->add_text(cd.properties[i].setter + TTR("(value)"));
+			// Script doc doesn't have setter, getter.
+			if (!cd.is_script_doc) {
+				Map<String, DocData::MethodDoc> method_map;
+				for (int j = 0; j < methods.size(); j++) {
+					method_map[methods[j].name] = methods[j];
 				}
-				class_desc->pop(); // color
-				class_desc->push_color(comment_color);
-				class_desc->add_text(" setter");
-				class_desc->pop(); // color
-				class_desc->pop(); // font
-				class_desc->pop(); // cell
-				method_line[cd.properties[i].setter] = property_line[cd.properties[i].name];
-			}
 
-			if (cd.properties[i].getter != "") {
-				class_desc->push_cell();
-				class_desc->pop(); // cell
+				if (cd.properties[i].setter != "") {
+					class_desc->push_cell();
+					class_desc->pop(); // cell
 
-				class_desc->push_cell();
-				class_desc->push_font(doc_code_font);
-				class_desc->push_color(text_color);
-				if (method_map[cd.properties[i].getter].arguments.size() > 0) {
-					// Getters with additional arguments are exposed in the method list, so we link them here for quick access.
-					class_desc->push_meta("@method " + cd.properties[i].getter);
-					class_desc->add_text(cd.properties[i].getter + "()");
-					class_desc->pop();
-				} else {
-					class_desc->add_text(cd.properties[i].getter + "()");
+					class_desc->push_cell();
+					class_desc->push_font(doc_code_font);
+					class_desc->push_color(text_color);
+					if (method_map[cd.properties[i].setter].arguments.size() > 1) {
+						// Setters with additional arguments are exposed in the method list, so we link them here for quick access.
+						class_desc->push_meta("@method " + cd.properties[i].setter);
+						class_desc->add_text(cd.properties[i].setter + TTR("(value)"));
+						class_desc->pop();
+					} else {
+						class_desc->add_text(cd.properties[i].setter + TTR("(value)"));
+					}
+					class_desc->pop(); // color
+					class_desc->push_color(comment_color);
+					class_desc->add_text(" setter");
+					class_desc->pop(); // color
+					class_desc->pop(); // font
+					class_desc->pop(); // cell
+					method_line[cd.properties[i].setter] = property_line[cd.properties[i].name];
 				}
-				class_desc->pop(); //color
-				class_desc->push_color(comment_color);
-				class_desc->add_text(" getter");
-				class_desc->pop(); //color
-				class_desc->pop(); //font
-				class_desc->pop(); //cell
-				method_line[cd.properties[i].getter] = property_line[cd.properties[i].name];
+
+				if (cd.properties[i].getter != "") {
+					class_desc->push_cell();
+					class_desc->pop(); // cell
+
+					class_desc->push_cell();
+					class_desc->push_font(doc_code_font);
+					class_desc->push_color(text_color);
+					if (method_map[cd.properties[i].getter].arguments.size() > 0) {
+						// Getters with additional arguments are exposed in the method list, so we link them here for quick access.
+						class_desc->push_meta("@method " + cd.properties[i].getter);
+						class_desc->add_text(cd.properties[i].getter + "()");
+						class_desc->pop();
+					} else {
+						class_desc->add_text(cd.properties[i].getter + "()");
+					}
+					class_desc->pop(); //color
+					class_desc->push_color(comment_color);
+					class_desc->add_text(" getter");
+					class_desc->pop(); //color
+					class_desc->pop(); //font
+					class_desc->pop(); //cell
+					method_line[cd.properties[i].getter] = property_line[cd.properties[i].name];
+				}
 			}
 
 			class_desc->pop(); // table
@@ -1094,13 +1174,17 @@ void EditorHelp::_update_doc() {
 			class_desc->push_color(text_color);
 			class_desc->push_font(doc_font);
 			class_desc->push_indent(1);
-			if (cd.properties[i].description.strip_edges() != String()) {
+			if (!cd.properties[i].description.strip_edges().empty()) {
 				_add_text(DTR(cd.properties[i].description));
 			} else {
 				class_desc->add_image(get_theme_icon("Error", "EditorIcons"));
 				class_desc->add_text(" ");
 				class_desc->push_color(comment_color);
-				class_desc->append_bbcode(TTR("There is currently no description for this property. Please help us by [color=$color][url=$url]contributing one[/url][/color]!").replace("$url", CONTRIBUTE_URL).replace("$color", link_color_text));
+				if (cd.is_script_doc) {
+					class_desc->append_bbcode(TTR("There is currently no description for this property."));
+				} else {
+					class_desc->append_bbcode(TTR("There is currently no description for this property. Please help us by [color=$color][url=$url]contributing one[/url][/color]!").replace("$url", CONTRIBUTE_URL).replace("$color", link_color_text));
+				}
 				class_desc->pop();
 			}
 			class_desc->pop();
@@ -1145,13 +1229,17 @@ void EditorHelp::_update_doc() {
 				class_desc->push_color(text_color);
 				class_desc->push_font(doc_font);
 				class_desc->push_indent(1);
-				if (methods_filtered[i].description.strip_edges() != String()) {
+				if (!methods_filtered[i].description.strip_edges().empty()) {
 					_add_text(DTR(methods_filtered[i].description));
 				} else {
 					class_desc->add_image(get_theme_icon("Error", "EditorIcons"));
 					class_desc->add_text(" ");
 					class_desc->push_color(comment_color);
-					class_desc->append_bbcode(TTR("There is currently no description for this method. Please help us by [color=$color][url=$url]contributing one[/url][/color]!").replace("$url", CONTRIBUTE_URL).replace("$color", link_color_text));
+					if (cd.is_script_doc) {
+						class_desc->append_bbcode(TTR("There is currently no description for this method."));
+					} else {
+						class_desc->append_bbcode(TTR("There is currently no description for this method. Please help us by [color=$color][url=$url]contributing one[/url][/color]!").replace("$url", CONTRIBUTE_URL).replace("$color", link_color_text));
+					}
 					class_desc->pop();
 				}
 
@@ -1235,7 +1323,7 @@ void EditorHelp::_help_callback(const String &p_topic) {
 }
 
 static void _add_text_to_rt(const String &p_bbcode, RichTextLabel *p_rt) {
-	DocData *doc = EditorHelp::get_doc_data();
+	DocTools *doc = EditorHelp::get_doc_data();
 	String base_path;
 
 	Ref<Font> doc_font = p_rt->get_theme_font("doc", "EditorFonts");
@@ -1412,7 +1500,7 @@ static void _add_text_to_rt(const String &p_bbcode, RichTextLabel *p_rt) {
 			tag_stack.push_front(tag);
 		} else if (tag == "center") {
 			//align to center
-			p_rt->push_align(RichTextLabel::ALIGN_CENTER);
+			p_rt->push_paragraph(RichTextLabel::ALIGN_CENTER, Control::TEXT_DIRECTION_AUTO, "");
 			pos = brk_end + 1;
 			tag_stack.push_front(tag);
 		} else if (tag == "br") {
@@ -1530,9 +1618,9 @@ void EditorHelp::_add_text(const String &p_bbcode) {
 }
 
 void EditorHelp::generate_doc() {
-	doc = memnew(DocData);
+	doc = memnew(DocTools);
 	doc->generate(true);
-	DocData compdoc;
+	DocTools compdoc;
 	compdoc.load_compressed(_doc_data_compressed, _doc_data_compressed_size, _doc_data_uncompressed_size);
 	doc->merge_from(compdoc); //ensure all is up to date
 }
@@ -1559,6 +1647,12 @@ void EditorHelp::go_to_help(const String &p_help) {
 
 void EditorHelp::go_to_class(const String &p_class, int p_scroll) {
 	_goto_desc(p_class, p_scroll);
+}
+
+void EditorHelp::update_doc() {
+	ERR_FAIL_COND(!doc->class_list.has(edited_class));
+	ERR_FAIL_COND(!doc->class_list[edited_class].is_script_doc);
+	_update_doc();
 }
 
 Vector<Pair<String, int>> EditorHelp::get_sections() {
@@ -1598,7 +1692,6 @@ void EditorHelp::set_scroll(int p_scroll) {
 void EditorHelp::_bind_methods() {
 	ClassDB::bind_method("_class_list_select", &EditorHelp::_class_list_select);
 	ClassDB::bind_method("_request_help", &EditorHelp::_request_help);
-	ClassDB::bind_method("_unhandled_key_input", &EditorHelp::_unhandled_key_input);
 	ClassDB::bind_method("_search", &EditorHelp::_search);
 	ClassDB::bind_method("_help_callback", &EditorHelp::_help_callback);
 

@@ -31,8 +31,8 @@
 #ifndef SCENE_STRING_NAMES_H
 #define SCENE_STRING_NAMES_H
 
-#include "core/node_path.h"
-#include "core/string_name.h"
+#include "core/string/node_path.h"
+#include "core/string/string_name.h"
 
 class SceneStringNames {
 	friend void register_scene_types();
@@ -58,7 +58,7 @@ public:
 	StringName dot;
 	StringName doubledot;
 	StringName draw;
-	StringName hide;
+	StringName hidden;
 	StringName visibility_changed;
 	StringName input_event;
 	StringName _input_event;
@@ -130,6 +130,7 @@ public:
 	StringName _update_xform;
 
 	StringName _clips_input;
+	StringName _structured_text_parser;
 
 	StringName _proxgroup_add;
 	StringName _proxgroup_remove;

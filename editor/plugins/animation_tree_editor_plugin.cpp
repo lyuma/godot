@@ -34,11 +34,11 @@
 #include "animation_blend_space_2d_editor.h"
 #include "animation_blend_tree_editor_plugin.h"
 #include "animation_state_machine_editor.h"
+#include "core/config/project_settings.h"
 #include "core/input/input.h"
 #include "core/io/resource_loader.h"
 #include "core/math/delaunay_2d.h"
 #include "core/os/keyboard.h"
-#include "core/project_settings.h"
 #include "editor/editor_scale.h"
 #include "scene/animation/animation_blend_tree.h"
 #include "scene/animation/animation_player.h"
@@ -140,9 +140,6 @@ void AnimationTreeEditor::enter_editor(const String &p_path) {
 	Vector<String> path = edited_path;
 	path.push_back(p_path);
 	edit_path(path);
-}
-
-void AnimationTreeEditor::_about_to_show_root() {
 }
 
 void AnimationTreeEditor::_notification(int p_what) {

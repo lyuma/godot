@@ -30,12 +30,12 @@
 
 #include "gdnative/array.h"
 
-#include "core/array.h"
 #include "core/os/memory.h"
+#include "core/variant/array.h"
 
-#include "core/color.h"
+#include "core/math/color.h"
 
-#include "core/variant.h"
+#include "core/variant/variant.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -81,6 +81,18 @@ void GDAPI godot_array_new_packed_vector3_array(godot_array *r_dest, const godot
 void GDAPI godot_array_new_packed_vector2_array(godot_array *r_dest, const godot_packed_vector2_array *p_pv2a) {
 	Array *dest = (Array *)r_dest;
 	Vector<Vector2> *pca = (Vector<Vector2> *)p_pv2a;
+	memnew_placement(dest, Array);
+	dest->resize(pca->size());
+
+	for (int i = 0; i < dest->size(); i++) {
+		Variant v = pca->operator[](i);
+		dest->operator[](i) = v;
+	}
+}
+
+void GDAPI godot_array_new_packed_vector2i_array(godot_array *r_dest, const godot_packed_vector2i_array *p_pv2a) {
+	Array *dest = (Array *)r_dest;
+	Vector<Vector2i> *pca = (Vector<Vector2i> *)p_pv2a;
 	memnew_placement(dest, Array);
 	dest->resize(pca->size());
 

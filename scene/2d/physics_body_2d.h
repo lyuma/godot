@@ -31,7 +31,7 @@
 #ifndef PHYSICS_BODY_2D_H
 #define PHYSICS_BODY_2D_H
 
-#include "core/vset.h"
+#include "core/templates/vset.h"
 #include "scene/2d/collision_object_2d.h"
 #include "scene/resources/physics_material.h"
 #include "servers/physics_server_2d.h"
@@ -191,9 +191,6 @@ public:
 
 	void set_inertia(real_t p_inertia);
 	real_t get_inertia() const;
-
-	void set_weight(real_t p_weight);
-	real_t get_weight() const;
 
 	void set_physics_material_override(const Ref<PhysicsMaterial> &p_physics_material_override);
 	Ref<PhysicsMaterial> get_physics_material_override() const;
