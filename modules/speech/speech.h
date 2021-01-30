@@ -32,7 +32,6 @@
 #define STREAM_AUDIO_OPUS_H
 
 #include "opus_codec.h"
-#include "scene/audio/audio_consumer.h"
 #include "thirdparty/libsamplerate/src/samplerate.h"
 
 #include "core/config/engine.h"
