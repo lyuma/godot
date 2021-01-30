@@ -160,12 +160,12 @@ void SpeechProcessor::start() {
 		return;
 	}
 
-	if (!audio_input_stream_player || !stream_audio.is_valid()) {
+	if (!audio_input_stream_player || !audio_effect_capture.is_valid()) {
 		return;
 	}
 
 	audio_input_stream_player->play();
-	stream_audio->clear_buffer();
+	audio_effect_capture->clear_buffer();
 }
 
 void SpeechProcessor::stop() {
@@ -260,9 +260,6 @@ void SpeechProcessor::set_streaming_bus(const String &p_name) {
 		int effect_count = audio_server->get_bus_effect_count(index);
 		for (int i = 0; i < effect_count; i++) {
 			audio_effect_capture = audio_server->get_bus_effect(index, i);
-			if (audio_effect_capture.is_valid()) {
-				stream_audio->initialize(audio_effect_capture, 0.25f);
-			}
 		}
 	}
 }
@@ -279,7 +276,7 @@ bool SpeechProcessor::set_audio_input_stream_player(Node *p_audio_input_stream_p
 }
 
 void SpeechProcessor::_setup() {
-	stream_audio.instance();
+	//stream_audio.instance();
 }
 
 void SpeechProcessor::set_process_all(bool p_active) {
@@ -327,11 +324,11 @@ void SpeechProcessor::_notification(int p_what) {
 			break;
 		case NOTIFICATION_PROCESS:
 			//if (!Engine::get_singleton()->is_editor_hint()) {
-			if (stream_audio.is_valid() && audio_input_stream_player && audio_input_stream_player->is_playing()) {
+			if (audio_effect_capture.is_valid() && audio_input_stream_player && audio_input_stream_player->is_playing()) {
 				_update_stats();
 				// This is pretty ugly, but needed to keep the audio from going out of sync
 				while (true) {
-					PackedVector2Array audio_frames = stream_audio->get_buffer(RECORD_MIX_FRAMES);
+					PackedVector2Array audio_frames = audio_effect_capture->get_buffer(RECORD_MIX_FRAMES);
 					if (audio_frames.size() == 0) {
 						break;
 					}
@@ -357,8 +354,8 @@ void SpeechProcessor::_notification(int p_what) {
 					capture_get_frames += audio_frames.size();
 					capture_pushed_frames = audio_effect_capture->get_pushed_frames();
 					capture_discarded_frames = audio_effect_capture->get_discarded_frames();
-					capture_ring_limit = audio_effect_capture->get_ring_size();
-					capture_ring_current_size = audio_effect_capture->get_ring_data_left();
+					capture_ring_limit = audio_effect_capture->get_buffer_length_frames();
+					capture_ring_current_size = audio_effect_capture->get_frames_available();
 					capture_ring_size_sum += capture_ring_current_size;
 					capture_ring_max_size = (capture_ring_current_size > capture_ring_max_size) ? capture_ring_current_size : capture_ring_max_size;
 

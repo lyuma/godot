@@ -37,7 +37,6 @@
 #include "scene/main/node.h"
 #include "servers/audio_server.h"
 
-#include "scene/audio/audio_consumer.h"
 #include "servers/audio/effects/audio_effect_capture.h"
 
 #include "scene/audio/audio_stream_player.h"
@@ -71,7 +70,6 @@ private:
 	uint32_t record_mix_frames_processed = 0;
 
 	AudioServer *audio_server = NULL;
-	Ref<AudioConsumer> stream_audio = NULL;
 	AudioStreamPlayer *audio_input_stream_player = NULL;
 	Ref<AudioEffectCapture> audio_effect_capture = NULL;
 
