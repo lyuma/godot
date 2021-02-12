@@ -654,7 +654,7 @@ void FBXMeshData::reorganize_vertices(
 
 					if (r_normals.has(new_vertex)) {
 						if ((this_vert_poly_normal - (*r_normals.getptr(new_vertex))).length_squared() <= CMP_EPSILON) {
-							same_uv2 = true;
+							same_normal = true;
 						}
 					}
 
