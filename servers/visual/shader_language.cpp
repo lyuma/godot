@@ -969,7 +969,6 @@ bool ShaderLanguage::_find_identifier(const BlockNode *p_block, const Map<String
 		return true;
 	}
 
-
 	if (shader->globals.has(p_identifier)) {
 		if (r_data_type) {
 			*r_data_type = shader->globals[p_identifier].type;
@@ -985,7 +984,6 @@ bool ShaderLanguage::_find_identifier(const BlockNode *p_block, const Map<String
 		}
 		return true;
 	}
-
 
 	for (int i = 0; i < shader->functions.size(); i++) {
 
@@ -2828,7 +2826,6 @@ bool ShaderLanguage::_validate_assign(Node *p_node, const Map<StringName, BuiltI
 				*r_message = RTR("Varyings can only be assigned in vertex function.");
 			return false;
 		}
-
 
 		if (shader->globals.has(var->name)) {
 			if (shader->globals[var->name].is_constant || var->is_const) {
@@ -5593,7 +5590,7 @@ Error ShaderLanguage::_parse_shader(const Map<StringName, FunctionInfo> &p_funct
 											_set_error("Expected ']'");
 											return ERR_PARSE_ERROR;
 										}
-									} else if (tk.type == TK_BRACKET_CLOSE){
+									} else if (tk.type == TK_BRACKET_CLOSE) {
 										array_size2 = array_size;
 										tk = _get_token();
 									} else {
