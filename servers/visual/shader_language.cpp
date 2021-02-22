@@ -5000,20 +5000,19 @@ Error ShaderLanguage::_parse_shader(const Map<StringName, FunctionInfo> &p_funct
 						while (true) {
 							tk = _get_token();
 							if (tk.type == TK_FILTER_NEAREST ||
-								tk.type == TK_FILTER_LINEAR ||
-								tk.type == TK_FILTER_NEAREST_MIPMAP ||
-								tk.type == TK_FILTER_LINEAR_MIPMAP ||
-								tk.type == TK_FILTER_NEAREST_MIPMAP_ANISO ||
-								tk.type == TK_FILTER_LINEAR_MIPMAP_ANISO ||
-								tk.type == TK_REPEAT_ENABLE ||
-								tk.type == TK_REPEAT_DISABLE ||
-								tk.type == TK_HINT_ROUGHNESS_NORMAL_TEXTURE ||
-								tk.type == TK_HINT_ROUGHNESS_R ||
-								tk.type == TK_HINT_ROUGHNESS_G ||
-								tk.type == TK_HINT_ROUGHNESS_B ||
-								tk.type == TK_HINT_ROUGHNESS_A ||
-								tk.type == TK_HINT_ROUGHNESS_GRAY)
-							{
+									tk.type == TK_FILTER_LINEAR ||
+									tk.type == TK_FILTER_NEAREST_MIPMAP ||
+									tk.type == TK_FILTER_LINEAR_MIPMAP ||
+									tk.type == TK_FILTER_NEAREST_MIPMAP_ANISO ||
+									tk.type == TK_FILTER_LINEAR_MIPMAP_ANISO ||
+									tk.type == TK_REPEAT_ENABLE ||
+									tk.type == TK_REPEAT_DISABLE ||
+									tk.type == TK_HINT_ROUGHNESS_NORMAL_TEXTURE ||
+									tk.type == TK_HINT_ROUGHNESS_R ||
+									tk.type == TK_HINT_ROUGHNESS_G ||
+									tk.type == TK_HINT_ROUGHNESS_B ||
+									tk.type == TK_HINT_ROUGHNESS_A ||
+									tk.type == TK_HINT_ROUGHNESS_GRAY) {
 								tk = _get_token();
 								if (tk.type != TK_COMMA) {
 									break;
