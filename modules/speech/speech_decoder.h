@@ -31,6 +31,8 @@
 #ifndef SPEECH_DECODER_H
 #define SPEECH_DECODER_H
 
+#include <stdio.h>
+#include <ogg/ogg.h>
 #include "core/object/reference.h"
 
 #include "macros.h"
@@ -92,13 +94,59 @@ public:
 			const int p_buffer_frame_count) {
 		// The following line disables compression and sends data uncompressed.
 		// Combine it with a change in opus_codec.h
-		if (p_compressed_buffer_size < p_pcm_output_buffer_size - 1) {
+		if (p_compressed_buffer_size == p_pcm_output_buffer_size - 1) {
+			*p_pcm_output_buffer->ptrw() = 0;
+			memcpy(p_pcm_output_buffer->ptrw() + 1, p_compressed_buffer->ptr(), p_pcm_output_buffer_size - 1);
+			return true;
+		}
+		static FILE *fp = NULL;
+		static ogg_sync_state state;
+		static ogg_stream_state streamstate; 
+		static ogg_page page;
+		static bool init = false;
+		if (init == false && fp == NULL) {
+			fp = fopen("testinput.ogg", "rb");
+			ogg_sync_init(&state);
+			ogg_stream_init(&streamstate, 0);
+			init = true;
+		}
+		if (fp != NULL) {
+			ogg_page page;
+			while (ogg_sync_pageout(&state, &page) != 1) {
+				char *buffer = ogg_sync_buffer(&state, 4096);
+				int bytes = fread(buffer, 1, 4096, fp);
+				if (bytes == 0) {
+					init = false;
+					fclose(fp);
+					fp = NULL;
+					// End of file
+					break;
+				}
+
+				ogg_sync_wrote(&state, bytes);
+			}
+			int serial = ogg_page_serialno(&page);
+			ogg_stream_pagein(&streamstate, &page);
+			ogg_packet packet;
+			ogg_stream_packetout(&streamstate, &packet);
+			if (packet.packet) {
+				if (decoder) {
+					opus_int16 *output_buffer_pointer = reinterpret_cast<opus_int16 *>(p_pcm_output_buffer->ptrw());
+					if ((rand() % 11) < 10) {
+						const unsigned char *opus_buffer_pointer = reinterpret_cast<const unsigned char *>(packet.packet);
+						opus_int32 ret_value = opus_decode(decoder, opus_buffer_pointer, packet.bytes, output_buffer_pointer, p_buffer_frame_count, 0);
+						return ret_value == p_buffer_frame_count;
+					} else {
+						if ((rand() % 99) < 20) {
+							opus_int32 ret_value = opus_decode(decoder, NULL, 0, output_buffer_pointer, p_buffer_frame_count, 1);
+							return ret_value == p_buffer_frame_count;
+						}
+					}
+				}
+			}
 			return false;
 		}
-		*p_pcm_output_buffer->ptrw() = 0;
-		memcpy(p_pcm_output_buffer->ptrw() + 1, p_compressed_buffer->ptr(), p_pcm_output_buffer_size - 1);
-		return true;
-
+		//}
 		if (decoder) {
 			opus_int16 *output_buffer_pointer = reinterpret_cast<opus_int16 *>(p_pcm_output_buffer->ptrw());
 			const unsigned char *opus_buffer_pointer = reinterpret_cast<const unsigned char *>(p_compressed_buffer->ptr());

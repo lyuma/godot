@@ -31,11 +31,16 @@
 #ifndef OPUS_CODEC_HPP
 #define OPUS_CODEC_HPP
 
+#define _CRT_SECURE_NO_WARNINGS 1
+#include <stdio.h>
+
 #include "speech_decoder.h"
 
 #include "thirdparty/opus/opus/opus.h"
 
 #include "macros.h"
+
+#include "ogg_packer.h"
 
 #if SPEECH_DECODER_POLYMORPHISM
 class OpusSpeechDecoder : public SpeechDecoder {
@@ -90,6 +95,10 @@ private:
 	unsigned char internal_buffer[INTERNAL_BUFFER_SIZE];
 
 	OpusEncoder *encoder = NULL;
+	OpusDecoder *xxdecoder = NULL;
+	oggpacker *oggp = NULL;
+	FILE *ogg_output_file = NULL;
+	uint64_t ogg_granule = 0;
 
 protected:
 	void print_opus_error(int error_code) {
@@ -145,8 +154,8 @@ public:
 
 		// The following line disables compression and sends data uncompressed.
 		// Combine it with a change in speech_decoder.h
-		memcpy(p_output_buffer->ptrw(), p_pcm_buffer->ptr() + 1, BUFFER_FRAME_COUNT * 2 - 1);
-		return BUFFER_FRAME_COUNT * 2 - 1;
+		/*memcpy(p_output_buffer->ptrw(), p_pcm_buffer->ptr() + 1, BUFFER_FRAME_COUNT * 2 - 1);
+		return BUFFER_FRAME_COUNT * 2 - 1;*/
 
 		if (encoder) {
 			const opus_int16 *pcm_buffer_pointer = reinterpret_cast<const opus_int16 *>(p_pcm_buffer->ptr());
@@ -162,6 +171,28 @@ public:
 			} else {
 				print_opus_error(ret_value);
 			}
+		}
+		unsigned char *packet = oggp_get_packet_buffer(oggp, number_of_bytes);
+		//nbBytes = opeint_encode_float(&enc->st, &enc->buffer[enc->channels * enc->buffer_start],
+		//		enc->buffer_end - enc->buffer_start, packet, max_packet_size);
+		memcpy(packet, internal_buffer, number_of_bytes);
+		ogg_granule += BUFFER_FRAME_COUNT;
+		oggp_commit_packet(oggp, number_of_bytes, ogg_granule, 0);
+		oggp_flush_page(oggp);
+		unsigned char *page;
+		int len;
+		while (oggp_get_next_page(oggp, &page, &len)) {
+			fwrite(page, len, 1, ogg_output_file);
+		}
+		fflush(ogg_output_file);
+		if (0 && xxdecoder) {
+			opus_int16 *output_buffer_pointer = reinterpret_cast<opus_int16 *>(p_output_buffer->ptrw());
+			memset(output_buffer_pointer, 0, BUFFER_FRAME_COUNT * 2);
+			const unsigned char *opus_buffer_pointer = reinterpret_cast<const unsigned char *>(internal_buffer);
+
+			opus_int32 ret_value = opus_decode(xxdecoder, opus_buffer_pointer, number_of_bytes, output_buffer_pointer, BUFFER_FRAME_COUNT, 0);
+			memmove(output_buffer_pointer, ((char *)output_buffer_pointer) + 1, BUFFER_FRAME_COUNT * 2 - 1);
+			return BUFFER_FRAME_COUNT * 2 - 1;
 		}
 
 		return number_of_bytes;
@@ -181,6 +212,30 @@ public:
 		return p_speech_decoder->process(p_compressed_buffer, p_pcm_output_buffer, p_compressed_buffer_size, p_pcm_output_buffer_size, BUFFER_FRAME_COUNT);
 	}
 
+//	int opeint_opus_header_to_packet() {
+		/* Version is 1 */
+		//ch = 1;
+		//if (!write_chars(&p, &ch, 1))
+		//	return 0;
+
+		//ch = h->channels;
+		//if (!write_chars(&p, &ch, 1))
+		//	return 0;
+
+		//if (!write_uint16(&p, 0))//h->preskip))
+		//	return 0;
+
+		//if (!write_uint32(&p, h->input_sample_rate))
+		//	return 0;
+
+		//if (!write_uint16(&p, h->gain))
+		//	return 0;
+
+		//ch = h->channel_mapping;
+		//if (!write_chars(&p, &ch, 1))
+		//	return 0;
+	//}
+
 	OpusCodec() {
 		print_line("OpusCodec::OpusCodec");
 		int error = 0;
@@ -190,19 +245,55 @@ public:
 			ERR_PRINT("OpusCodec: could not create Opus encoder!");
 		}
 		// allowed half-sample-rate.
-		//error = opus_encoder_ctl(encoder, OPUS_SET_BANDWIDTH(OPUS_BANDWIDTH_FULLBAND)); //OPUS_AUTO));
+		error = opus_encoder_ctl(encoder, OPUS_SET_BANDWIDTH(OPUS_BANDWIDTH_FULLBAND)); //OPUS_BANDWIDTH_NARROWBAND)); //OPUS_AUTO));
 		if (error != OPUS_OK) {
 			print_opus_error(error);
 		}
-		//error = opus_encoder_ctl(encoder, OPUS_SET_BITRATE(512000));
+		error = opus_encoder_ctl(encoder, OPUS_SET_BITRATE(128000)); //8000));
 		if (error != OPUS_OK) {
 			print_opus_error(error);
 		}
+		xxdecoder = opus_decoder_create(SAMPLE_RATE, CHANNEL_COUNT, &error);
+		if (error != OPUS_OK) {
+			ERR_PRINT("OpusCodec: could not create Opus decoder!");
+		}
+		char x[100];
+		sprintf(x, "output%d.ogg", ((int)(rand() + ((intptr_t)this))) % 9887);
+		ogg_output_file = fopen(x, "wb");
+		oggp = oggp_create(0);
+		oggp_set_muxing_delay(oggp, 384);
+		/* 19 bytes from fixed header,
+		 * 2 bytes for nb_streams & nb_coupled,
+		 * 1 byte per channel
+		 */
+		int header_size = 19;
+		unsigned char *packet = oggp_get_packet_buffer(oggp, header_size);
+		memcpy(packet, (const unsigned char *)"OpusHead\x01\x01\x00\x00\x80\xbb\x00\x00\x00\x00\x00\x00\x00", header_size); // \x01\x00\x00
+		packet[12] = (unsigned char)(SAMPLE_RATE & 255);
+		packet[13] = (unsigned char)((SAMPLE_RATE >> 8) & 255);
+		packet[14] = (unsigned char)((SAMPLE_RATE >> 16) & 255);
+		oggp_commit_packet(oggp, header_size, 0, 0);
+		oggp_flush_page(oggp);
 	}
 
 	~OpusCodec() {
 		print_line("OpusCodec::~OpusCodec");
 		opus_encoder_destroy(encoder);
+		opus_decoder_destroy(xxdecoder);
+		int number_of_bytes = 0;
+		unsigned char *packet = oggp_get_packet_buffer(oggp, number_of_bytes);
+		*packet = 0;
+		ogg_granule += BUFFER_FRAME_COUNT;
+		oggp_commit_packet(oggp, number_of_bytes, ogg_granule, 1);
+		oggp_flush_page(oggp);
+		unsigned char *page;
+		int len;
+		while (oggp_get_next_page(oggp, &page, &len)) {
+			fwrite(page, len, 1, ogg_output_file);
+		}
+		oggp_destroy(oggp);
+		fflush(ogg_output_file);
+		fclose(ogg_output_file);
 	}
 };
 
