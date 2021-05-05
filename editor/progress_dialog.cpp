@@ -207,7 +207,7 @@ bool ProgressDialog::task_step(const String &p_task, const String &p_state, int 
 		DisplayServer::get_singleton()->process_events();
 	}
 
-	Main::iteration(); // this will not work on a lot of platforms, so it's only meant for the editor
+	/////////////////////// LYUMA DISABLED //////// Main::iteration(); // this will not work on a lot of platforms, so it's only meant for the editor
 	return cancelled;
 }
 
