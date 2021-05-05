@@ -40,7 +40,7 @@ void WindowsTerminalLogger::logv(const char *p_format, va_list p_list, bool p_er
 		return;
 	}
 
-	const unsigned int BUFFER_SIZE = 16384;
+	const unsigned int BUFFER_SIZE = 163840;
 	char buf[BUFFER_SIZE + 1]; // +1 for the terminating character
 	int len = vsnprintf(buf, BUFFER_SIZE, p_format, p_list);
 	if (len <= 0)
