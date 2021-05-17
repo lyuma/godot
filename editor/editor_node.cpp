@@ -3714,10 +3714,10 @@ void EditorNode::add_io_error(const String &p_error) {
 }
 
 void EditorNode::_load_error_notify(void *p_ud, const String &p_text) {
-	EditorNode *en = (EditorNode *)p_ud;
-	en->load_errors->add_image(en->gui_base->get_theme_icon(SNAME("Error"), SNAME("EditorIcons")));
-	en->load_errors->add_text(p_text + "\n");
-	en->load_error_dialog->popup_centered_ratio(0.5);
+	//EditorNode *en = (EditorNode *)p_ud;
+	//en->load_errors->add_image(en->gui_base->get_theme_icon(SNAME("Error"), SNAME("EditorIcons")));
+	//en->load_errors->add_text(p_text + "\n");
+	//en->load_error_dialog->popup_centered_ratio(0.5);
 }
 
 bool EditorNode::_find_scene_in_use(Node *p_node, const String &p_path) const {
