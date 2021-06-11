@@ -423,18 +423,49 @@ String ShaderCompilerGLES2::_dump_node_code(const SL::Node *p_node, int p_level,
 
 			// constants
 
-			for (int i = 0; i < snode->vconstants.size(); i++) {
+			for (int i = 0; i < snode->vglobals.size(); i++) {
 				String gcode;
-				gcode += "const ";
-				if (snode->vconstants[i].type == SL::TYPE_STRUCT) {
-					gcode += _mkid(snode->vconstants[i].type_str);
-				} else {
-					gcode += _prestr(snode->vconstants[i].precision);
-					gcode += _typestr(snode->vconstants[i].type);
+				if (snode->vglobals[i].is_constant) {
+					gcode += "const ";
 				}
-				gcode += " " + _mkid(String(snode->vconstants[i].name));
-				gcode += "=";
-				gcode += _dump_node_code(snode->vconstants[i].initializer, p_level, r_gen_code, p_actions, p_default_actions, p_assigning);
+				if (snode->vglobals[i].type == SL::TYPE_STRUCT) {
+					gcode += _mkid(snode->vglobals[i].type_str);
+				} else {
+					gcode += _prestr(snode->vglobals[i].precision);
+					gcode += _typestr(snode->vglobals[i].type);
+				}
+				gcode += " " + _mkid(String(snode->vglobals[i].name));
+				if (snode->vglobals[i].array_size > 0) {
+					gcode += "[";
+					gcode += itos(snode->vglobals[i].array_size);
+					gcode += "]";
+				}
+				int sz = snode->vglobals[i].initializer.size();
+				if (sz > 0) {
+					gcode += "=";
+					if (snode->vglobals[i].array_size > 0) {
+						if (snode->vglobals[i].type == SL::TYPE_STRUCT) {
+							gcode += _mkid(snode->vglobals[i].type_str);
+						} else {
+							gcode += _typestr(snode->vglobals[i].type);
+						}
+						if (snode->vglobals[i].array_size > 0) {
+							gcode += "[";
+							gcode += itos(snode->vglobals[i].array_size);
+							gcode += "]";
+						}
+						gcode += "(";
+						for (int j = 0; j < sz; j++) {
+							gcode += _dump_node_code(snode->vglobals[i].initializer[j], p_level, r_gen_code, p_actions, p_default_actions, p_assigning);
+							if (j != sz - 1) {
+								gcode += ", ";
+							}
+						}
+						gcode += ")";
+					} else {
+						gcode += _dump_node_code(snode->vglobals[i].initializer[0], p_level, r_gen_code, p_actions, p_default_actions, p_assigning);
+					}
+				}
 				gcode += ";\n";
 				vertex_global += gcode;
 				fragment_global += gcode;
