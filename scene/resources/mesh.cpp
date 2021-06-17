@@ -80,6 +80,7 @@ Ref<TriangleMesh> Mesh::generate_triangle_mesh() const {
 		int vc = surface_get_array_len(i);
 		Vector<Vector3> vertices = a[ARRAY_VERTEX];
 		const Vector3 *vr = vertices.ptr();
+		int vsize = vertices.size();
 
 		if (surface_get_format(i) & ARRAY_FORMAT_INDEX) {
 			int ic = surface_get_array_index_len(i);
@@ -88,6 +89,7 @@ Ref<TriangleMesh> Mesh::generate_triangle_mesh() const {
 
 			for (int j = 0; j < ic; j++) {
 				int index = ir[j];
+				ERR_FAIL_INDEX_V(index, vsize, Ref<TriangleMesh>());
 				facesw[widx++] = vr[index];
 			}
 

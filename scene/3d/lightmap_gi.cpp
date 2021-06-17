@@ -457,7 +457,7 @@ int32_t LightmapGI::_compute_bsp_tree(const Vector<Vector3> &p_points, const Loc
 
 		//find the longest axis
 
-		WARN_PRINT("Inconsistency found in triangulation while building BSP, probe interpolation quality may degrade a bit.");
+		WARN_PRINT_ONCE("Inconsistency found in triangulation while building BSP, probe interpolation quality may degrade a bit.");
 
 		LocalVector<Vector3> centers;
 		AABB bounds_all;
