@@ -43,13 +43,13 @@ as it's generated on the user's system.)
 
 ## cvtt
 
-- Upstream: https://github.com/elasota/cvtt
-- Version: 1.0.0-beta4 (cc8472a04ba110fe999c686d07af40f7839051fd, 2018)
+- Upstream: https://github.com/elasota/ConvectionKernels.git
+- Version: master (d69e5be2fc8c9925debb4176c50f3a1dd41c9d1a, 2021)
 - License: MIT
 
 Files extracted from upstream source:
 
-- all .cpp, .h, and .txt files in ConvectionKernels/
+- all .cpp, .h, and .txt files except the folders MakeTables and etc2packer.
 
 
 ## doctest
