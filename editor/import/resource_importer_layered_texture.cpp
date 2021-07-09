@@ -257,6 +257,8 @@ void ResourceImporterLayeredTexture::_save_tex(Vector<Ref<Image>> p_images, cons
 	}
 
 	FileAccessRef f = FileAccess::open(p_to_path, FileAccess::WRITE);
+	ERR_FAIL_COND(!f);
+
 	f->store_8('G');
 	f->store_8('S');
 	f->store_8('T');
