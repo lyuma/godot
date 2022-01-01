@@ -77,7 +77,6 @@ void ImageLoaderSVG::create_image_from_string(Ref<::Image> p_image, String p_str
 	PackedByteArray bytes = p_string.to_utf8_buffer();
 	tvg::Result result = picture->load((const char *)bytes.ptr(), bytes.size(), "svg", true);
 	if (result != tvg::Result::Success) {
-		tvg::Initializer::term(tvg::CanvasEngine::Sw);
 		return;
 	}
 	picture->viewbox(nullptr, nullptr, &fw, &fh);
@@ -90,7 +89,6 @@ void ImageLoaderSVG::create_image_from_string(Ref<::Image> p_image, String p_str
 	uint32_t *buffer = (uint32_t *)malloc(sizeof(uint32_t) * width * height);
 	tvg::Result res = sw_canvas->target(buffer, width, width, height, tvg::SwCanvas::ARGB8888_STRAIGHT);
 	if (res != tvg::Result::Success) {
-		tvg::Initializer::term(tvg::CanvasEngine::Sw);
 		ERR_FAIL_MSG("ImageLoaderSVG can't create image.");
 	}
 
@@ -104,23 +102,19 @@ void ImageLoaderSVG::create_image_from_string(Ref<::Image> p_image, String p_str
 		shape->fill(bgColorR, bgColorG, bgColorB, 255); //r, g, b, a
 
 		if (sw_canvas->push(move(shape)) != tvg::Result::Success) {
-			tvg::Initializer::term(tvg::CanvasEngine::Sw);
 			ERR_FAIL_MSG("ImageLoaderSVG can't create image.");
 		}
 	}
 	res = sw_canvas->push(move(picture));
 	if (res != tvg::Result::Success) {
-		tvg::Initializer::term(tvg::CanvasEngine::Sw);
 		ERR_FAIL_MSG("ImageLoaderSVG can't create image.");
 	}
 	res = sw_canvas->draw();
 	if (res != tvg::Result::Success) {
-		tvg::Initializer::term(tvg::CanvasEngine::Sw);
 		ERR_FAIL_MSG("ImageLoaderSVG can't create image.");
 	}
 	res = sw_canvas->sync();
 	if (res != tvg::Result::Success) {
-		tvg::Initializer::term(tvg::CanvasEngine::Sw);
 		ERR_FAIL_MSG("ImageLoaderSVG can't create image.");
 	}
 	Vector<uint8_t> image;
