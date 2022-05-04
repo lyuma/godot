@@ -88,8 +88,8 @@ class AnimationTimelineEdit : public Range {
 
 	bool dragging_timeline = false;
 	bool dragging_hsize = false;
-	float dragging_hsize_from = 0.0f;
-	float dragging_hsize_at = 0.0f;
+	float dragging_hsize_from;
+	float dragging_hsize_at;
 
 	virtual void gui_input(const Ref<InputEvent> &p_event) override;
 	void _track_added(int p_track);
@@ -145,16 +145,17 @@ class AnimationTrackEdit : public Control {
 		MENU_KEY_INSERT,
 		MENU_KEY_DUPLICATE,
 		MENU_KEY_ADD_RESET,
-		MENU_KEY_DELETE
+		MENU_KEY_DELETE,
+		MENU_AUTO_VOLUME_DISABLE,
+		MENU_AUTO_VOLUME_ENABLE
 	};
-
 	AnimationTimelineEdit *timeline = nullptr;
 	UndoRedo *undo_redo = nullptr;
 	Popup *path_popup = nullptr;
 	LineEdit *path = nullptr;
 	Node *root = nullptr;
 	Control *play_position = nullptr; //separate control used to draw so updates for only position changed are much faster
-	float play_position_pos = 0.0f;
+	float play_position_pos;
 	NodePath node_path;
 
 	Ref<Animation> animation;
@@ -191,12 +192,12 @@ class AnimationTrackEdit : public Control {
 
 	Ref<Texture2D> _get_key_type_icon() const;
 
-	mutable int dropping_at = 0;
-	float insert_at_pos = 0.0f;
+	mutable int dropping_at;
+	float insert_at_pos;
 	bool moving_selection_attempt = false;
-	int select_single_attempt = -1;
+	int select_single_attempt;
 	bool moving_selection = false;
-	float moving_selection_from_ofs = 0.0f;
+	float moving_selection_from_ofs;
 
 	bool in_group = false;
 	AnimationTrackEditor *editor = nullptr;
@@ -245,6 +246,8 @@ public:
 	void cancel_drop();
 
 	void set_in_group(bool p_enable);
+	void set_read_only(bool p_read_only);
+	bool get_read_only();
 	void append_to_selection(const Rect2 &p_box, bool p_deselection);
 
 	AnimationTrackEdit();
@@ -346,7 +349,7 @@ class AnimationTrackEditor : public VBoxContainer {
 	PropertySelector *prop_selector = nullptr;
 	PropertySelector *method_selector = nullptr;
 	SceneTreeDialog *pick_track = nullptr;
-	int adding_track_type = 0;
+	int adding_track_type;
 	NodePath adding_track_path;
 
 	bool keying = false;
@@ -358,7 +361,7 @@ class AnimationTrackEditor : public VBoxContainer {
 		Variant value;
 		String query;
 		bool advance = false;
-	};
+	}; /* insert_data;*/
 
 	Label *insert_confirm_text = nullptr;
 	CheckBox *insert_confirm_bezier = nullptr;
@@ -393,8 +396,8 @@ class AnimationTrackEditor : public VBoxContainer {
 
 	void _timeline_value_changed(double);
 
-	float insert_key_from_track_call_ofs = 0.0f;
-	int insert_key_from_track_call_track = 0;
+	float insert_key_from_track_call_ofs;
+	int insert_key_from_track_call_track;
 	void _insert_key_from_track(float p_ofs, int p_track);
 	void _add_method_key(const String &p_method);
 
@@ -420,7 +423,7 @@ class AnimationTrackEditor : public VBoxContainer {
 	void _key_deselected(int p_key, int p_track);
 
 	bool moving_selection = false;
-	float moving_selection_offset = 0.0f;
+	float moving_selection_offset;
 	void _move_selection_begin();
 	void _move_selection(float p_offset);
 	void _move_selection_commit();
@@ -464,7 +467,7 @@ class AnimationTrackEditor : public VBoxContainer {
 
 	void _edit_menu_about_to_popup();
 	void _edit_menu_pressed(int p_option);
-	int last_menu_track_opt = 0;
+	int last_menu_track_opt;
 
 	void _cleanup_animation(Ref<Animation> p_animation);
 
@@ -482,12 +485,13 @@ class AnimationTrackEditor : public VBoxContainer {
 	struct TrackClipboard {
 		NodePath full_path;
 		NodePath base_path;
-		Animation::TrackType track_type = Animation::TrackType::TYPE_ANIMATION;
-		Animation::InterpolationType interp_type = Animation::InterpolationType::INTERPOLATION_CUBIC;
-		Animation::UpdateMode update_mode = Animation::UpdateMode::UPDATE_CAPTURE;
-		Animation::LoopMode loop_mode = Animation::LoopMode::LOOP_LINEAR;
+		Animation::TrackType track_type = Animation::TYPE_ANIMATION;
+		Animation::InterpolationType interp_type = Animation::INTERPOLATION_CUBIC;
+		Animation::UpdateMode update_mode = Animation::UPDATE_CAPTURE;
+		Animation::LoopMode loop_mode = Animation::LOOP_LINEAR;
 		bool loop_wrap = false;
 		bool enabled = false;
+		bool auto_volume = false;
 
 		struct Key {
 			float time = 0;

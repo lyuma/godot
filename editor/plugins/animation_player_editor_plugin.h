@@ -57,6 +57,13 @@ class AnimationPlayerEditor : public VBoxContainer {
 		TOOL_EDIT_TRANSITIONS,
 		TOOL_REMOVE_ANIM,
 		TOOL_EDIT_RESOURCE
+#ifndef _3D_DISABLED
+			,
+		TOOL_MAKE_REATRGET_TRACKS,
+		TOOL_RESTORE_REATRGET_TRACKS,
+		TOOL_DELETE_REATRGET_TRACKS,
+		TOOL_DELETE_NOT_REATRGET_TRACKS
+#endif // _3D_DISABLED
 	};
 
 	enum {
@@ -211,6 +218,14 @@ class AnimationPlayerEditor : public VBoxContainer {
 
 	void _pin_pressed();
 	String _get_current() const;
+
+#ifndef _3D_DISABLED
+	void _make_retarget_tracks();
+	void _restore_retarget_tracks();
+	void _delete_retarget_tracks();
+	void _delete_not_retarget_tracks();
+	void _delete_confrict_tracks();
+#endif // _3D_DISABLED
 
 	~AnimationPlayerEditor();
 

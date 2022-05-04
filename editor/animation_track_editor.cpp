@@ -176,7 +176,9 @@ public:
 			case Animation::TYPE_ROTATION_3D:
 			case Animation::TYPE_SCALE_3D: {
 				if (name == "position" || name == "rotation" || name == "scale") {
-					Variant old = animation->track_get_key_value(track, key);
+					Dictionary d_old = animation->track_get_key_value(track, key);
+					Dictionary d_new = d_old.duplicate();
+					d_new[name] = p_value;
 					setting = true;
 					String chan;
 					switch (animation->track_get_type(track)) {
@@ -195,7 +197,7 @@ public:
 
 					undo_redo->create_action(vformat(TTR("Anim Change %s"), chan));
 					undo_redo->add_do_method(animation.ptr(), "track_set_key_value", track, key, p_value);
-					undo_redo->add_undo_method(animation.ptr(), "track_set_key_value", track, key, old);
+					undo_redo->add_undo_method(animation.ptr(), "track_set_key_value", track, key, d_old[name]);
 					undo_redo->add_do_method(this, "_update_obj", animation);
 					undo_redo->add_undo_method(this, "_update_obj", animation);
 					undo_redo->commit_action();
@@ -457,8 +459,10 @@ public:
 			case Animation::TYPE_POSITION_3D:
 			case Animation::TYPE_ROTATION_3D:
 			case Animation::TYPE_SCALE_3D: {
+				Dictionary d = animation->track_get_key_value(track, key);
 				if (name == "position" || name == "rotation" || name == "scale") {
-					r_ret = animation->track_get_key_value(track, key);
+					ERR_FAIL_COND_V(!d.has(name), false);
+					r_ret = d[name];
 					return true;
 				}
 			} break;
@@ -844,7 +848,9 @@ public:
 					case Animation::TYPE_POSITION_3D:
 					case Animation::TYPE_ROTATION_3D:
 					case Animation::TYPE_SCALE_3D: {
-						Variant old = animation->track_get_key_value(track, key);
+						Dictionary d_old = animation->track_get_key_value(track, key);
+						Dictionary d_new = d_old.duplicate();
+						d_new[name] = p_value;
 						if (!setting) {
 							String chan;
 							switch (animation->track_get_type(track)) {
@@ -865,7 +871,7 @@ public:
 							undo_redo->create_action(vformat(TTR("Anim Multi Change %s"), chan));
 						}
 						undo_redo->add_do_method(animation.ptr(), "track_set_key_value", track, key, p_value);
-						undo_redo->add_undo_method(animation.ptr(), "track_set_key_value", track, key, old);
+						undo_redo->add_undo_method(animation.ptr(), "track_set_key_value", track, key, d_old[name]);
 						update_obj = true;
 					} break;
 					case Animation::TYPE_BLEND_SHAPE:
@@ -1100,8 +1106,10 @@ public:
 					case Animation::TYPE_POSITION_3D:
 					case Animation::TYPE_ROTATION_3D:
 					case Animation::TYPE_SCALE_3D: {
+						Dictionary d = animation->track_get_key_value(track, key);
 						if (name == "position" || name == "rotation" || name == "scale") {
-							r_ret = animation->track_get_key_value(track, key);
+							ERR_FAIL_COND_V(!d.has(name), false);
+							r_ret = d[name];
 							return true;
 						}
 
@@ -1431,13 +1439,13 @@ void AnimationTimelineEdit::_anim_loop_pressed() {
 		undo_redo->create_action(TTR("Change Animation Loop"));
 		switch (animation->get_loop_mode()) {
 			case Animation::LoopMode::LOOP_NONE: {
-				undo_redo->add_do_method(animation.ptr(), "set_loop_mode", Animation::LoopMode::LOOP_LINEAR);
+				undo_redo->add_do_method(animation.ptr(), "set_loop_mode", Animation::LOOP_LINEAR);
 			} break;
 			case Animation::LoopMode::LOOP_LINEAR: {
-				undo_redo->add_do_method(animation.ptr(), "set_loop_mode", Animation::LoopMode::LOOP_PINGPONG);
+				undo_redo->add_do_method(animation.ptr(), "set_loop_mode", Animation::LOOP_PINGPONG);
 			} break;
 			case Animation::LoopMode::LOOP_PINGPONG: {
-				undo_redo->add_do_method(animation.ptr(), "set_loop_mode", Animation::LoopMode::LOOP_NONE);
+				undo_redo->add_do_method(animation.ptr(), "set_loop_mode", Animation::LOOP_NONE);
 			} break;
 			default:
 				break;
@@ -1752,15 +1760,15 @@ void AnimationTimelineEdit::update_values() {
 	}
 
 	switch (animation->get_loop_mode()) {
-		case Animation::LoopMode::LOOP_NONE: {
+		case Animation::LOOP_NONE: {
 			loop->set_icon(get_theme_icon(SNAME("Loop"), SNAME("EditorIcons")));
 			loop->set_pressed(false);
 		} break;
-		case Animation::LoopMode::LOOP_LINEAR: {
+		case Animation::LOOP_LINEAR: {
 			loop->set_icon(get_theme_icon(SNAME("Loop"), SNAME("EditorIcons")));
 			loop->set_pressed(true);
 		} break;
-		case Animation::LoopMode::LOOP_PINGPONG: {
+		case Animation::LOOP_PINGPONG: {
 			loop->set_icon(get_theme_icon(SNAME("PingPongLoop"), SNAME("EditorIcons")));
 			loop->set_pressed(true);
 		} break;
@@ -1914,7 +1922,10 @@ void AnimationTimelineEdit::_bind_methods() {
 
 AnimationTimelineEdit::AnimationTimelineEdit() {
 	name_limit = 150 * EDSCALE;
+	zoom = nullptr;
+	track_edit = nullptr;
 
+	play_position_pos = 0;
 	play_position = memnew(Control);
 	play_position->set_mouse_filter(MOUSE_FILTER_PASS);
 	add_child(play_position);
@@ -2012,9 +2023,9 @@ void AnimationTrackEdit::_notification(int p_what) {
 			Color dc = get_theme_color(SNAME("disabled_font_color"), SNAME("Editor"));
 
 			// NAMES AND ICONS //
-
+			bool is_retarget_track = animation->track_is_retarget(track);
 			{
-				Ref<Texture2D> check = animation->track_is_enabled(track) ? get_theme_icon(SNAME("checked"), SNAME("CheckBox")) : get_theme_icon(SNAME("unchecked"), SNAME("CheckBox"));
+				Ref<Texture2D> check = is_retarget_track ? get_theme_icon(SNAME("Lock"), SNAME("EditorIcons")) : get_theme_icon(animation->track_is_enabled(track) ? SNAME("checked") : SNAME("unchecked"), SNAME("CheckBox"));
 
 				int ofs = in_group ? check->get_width() : 0; // Not the best reference for margin but..
 
@@ -2126,6 +2137,17 @@ void AnimationTrackEdit::_notification(int p_what) {
 					get_theme_icon(SNAME("TrackCapture"), SNAME("EditorIcons"))
 				};
 
+				Ref<Texture2D> volume_icon[2] = {
+					get_theme_icon(SNAME("AutoVolumeDisable"), SNAME("EditorIcons")),
+					get_theme_icon(SNAME("AutoVolumeEnable"), SNAME("EditorIcons")),
+				};
+
+				Ref<Texture2D> retarget_icon[3] = {
+					get_theme_icon(SNAME("RetargetGlobal"), SNAME("EditorIcons")),
+					get_theme_icon(SNAME("RetargetLocal"), SNAME("EditorIcons")),
+					get_theme_icon(SNAME("RetargetAbsolute"), SNAME("EditorIcons"))
+				};
+
 				int ofs = get_size().width - timeline->get_buttons_width();
 
 				Ref<Texture2D> down_icon = get_theme_icon(SNAME("select_arrow"), SNAME("Tree"));
@@ -2150,10 +2172,37 @@ void AnimationTrackEdit::_notification(int p_what) {
 					update_mode_rect.position.y = int(get_size().height - update_icon->get_height()) / 2;
 					update_mode_rect.size = update_icon->get_size();
 
-					if (!animation->track_is_compressed(track) && animation->track_get_type(track) == Animation::TYPE_VALUE) {
-						draw_texture(update_icon, update_mode_rect.position);
+					if (!animation->track_is_compressed(track)) {
+						if (animation->track_get_type(track) == Animation::TYPE_VALUE) {
+							draw_texture(update_icon, update_mode_rect.position);
+						}
+						if (animation->track_get_type(track) == Animation::TYPE_AUDIO) {
+							Ref<Texture2D> auto_volume_icon = volume_icon[animation->audio_track_get_auto_volume(track) ? 1 : 0];
+							Vector2 auto_volume_icon_pos = update_mode_rect.position + (update_mode_rect.size - auto_volume_icon->get_size()) / 2;
+							draw_texture(auto_volume_icon, auto_volume_icon_pos);
+						}
 					}
-					// Make it easier to click.
+#ifndef _3D_DISABLED
+					if (is_retarget_track) {
+						Vector2 centerize = Vector2(down_icon->get_width() * 0.5, 0);
+						if (animation->track_get_type(track) == Animation::TYPE_POSITION_3D) {
+							Ref<Texture2D> retarget_mode_icon = retarget_icon[animation->position_track_get_retarget_mode(track)];
+							Vector2 retarget_mode_icon_pos = centerize + update_mode_rect.position + (update_mode_rect.size - retarget_mode_icon->get_size()) / 2;
+							draw_texture(retarget_mode_icon, retarget_mode_icon_pos);
+						}
+						if (animation->track_get_type(track) == Animation::TYPE_ROTATION_3D) {
+							Ref<Texture2D> retarget_mode_icon = retarget_icon[animation->rotation_track_get_retarget_mode(track)];
+							Vector2 retarget_mode_icon_pos = centerize + update_mode_rect.position + (update_mode_rect.size - retarget_mode_icon->get_size()) / 2;
+							draw_texture(retarget_mode_icon, retarget_mode_icon_pos);
+						}
+						if (animation->track_get_type(track) == Animation::TYPE_SCALE_3D) {
+							Ref<Texture2D> retarget_mode_icon = retarget_icon[animation->scale_track_get_retarget_mode(track)];
+							Vector2 retarget_mode_icon_pos = centerize + update_mode_rect.position + (update_mode_rect.size - retarget_mode_icon->get_size()) / 2;
+							draw_texture(retarget_mode_icon, retarget_mode_icon_pos);
+						}
+					}
+#endif // _3D_DISABLED
+
 					update_mode_rect.position.y = 0;
 					update_mode_rect.size.y = get_size().height;
 
@@ -2161,7 +2210,7 @@ void AnimationTrackEdit::_notification(int p_what) {
 					update_mode_rect.size.x += hsep / 2;
 
 					if (!read_only) {
-						if (animation->track_get_type(track) == Animation::TYPE_VALUE) {
+						if (animation->track_get_type(track) == Animation::TYPE_VALUE || animation->track_get_type(track) == Animation::TYPE_AUDIO) {
 							draw_texture(down_icon, Vector2(ofs, int(get_size().height - down_icon->get_height()) / 2));
 							update_mode_rect.size.x += down_icon->get_width();
 						} else if (animation->track_get_type(track) == Animation::TYPE_BEZIER) {
@@ -2613,7 +2662,11 @@ String AnimationTrackEdit::get_tooltip(const Point2 &p_pos) const {
 	}
 
 	if (update_mode_rect.has_point(p_pos)) {
-		return TTR("Update Mode (How this property is set)");
+		if (animation->track_get_type(track) == Animation::TYPE_AUDIO) {
+			return TTR("Auto Volume (Allow animation tree to override stream player volume)");
+		} else {
+			return TTR("Update Mode (How this property is set)");
+		}
 	}
 
 	if (interp_mode_rect.has_point(p_pos)) {
@@ -2811,10 +2864,15 @@ void AnimationTrackEdit::gui_input(const Ref<InputEvent> &p_event) {
 					menu->connect("id_pressed", callable_mp(this, &AnimationTrackEdit::_menu_selected));
 				}
 				menu->clear();
-				menu->add_icon_item(get_theme_icon(SNAME("TrackContinuous"), SNAME("EditorIcons")), TTR("Continuous"), MENU_CALL_MODE_CONTINUOUS);
-				menu->add_icon_item(get_theme_icon(SNAME("TrackDiscrete"), SNAME("EditorIcons")), TTR("Discrete"), MENU_CALL_MODE_DISCRETE);
-				menu->add_icon_item(get_theme_icon(SNAME("TrackTrigger"), SNAME("EditorIcons")), TTR("Trigger"), MENU_CALL_MODE_TRIGGER);
-				menu->add_icon_item(get_theme_icon(SNAME("TrackCapture"), SNAME("EditorIcons")), TTR("Capture"), MENU_CALL_MODE_CAPTURE);
+				if (animation->track_get_type(track) == Animation::TYPE_AUDIO) {
+					menu->add_icon_item(get_theme_icon(SNAME("AutoVolumeDisable"), SNAME("EditorIcons")), TTR("Disable"), MENU_AUTO_VOLUME_DISABLE);
+					menu->add_icon_item(get_theme_icon(SNAME("AutoVolumeEnable"), SNAME("EditorIcons")), TTR("Enable"), MENU_AUTO_VOLUME_ENABLE);
+				} else {
+					menu->add_icon_item(get_theme_icon(SNAME("TrackContinuous"), SNAME("EditorIcons")), TTR("Continuous"), MENU_CALL_MODE_CONTINUOUS);
+					menu->add_icon_item(get_theme_icon(SNAME("TrackDiscrete"), SNAME("EditorIcons")), TTR("Discrete"), MENU_CALL_MODE_DISCRETE);
+					menu->add_icon_item(get_theme_icon(SNAME("TrackTrigger"), SNAME("EditorIcons")), TTR("Trigger"), MENU_CALL_MODE_TRIGGER);
+					menu->add_icon_item(get_theme_icon(SNAME("TrackCapture"), SNAME("EditorIcons")), TTR("Capture"), MENU_CALL_MODE_CAPTURE);
+				}
 				menu->reset_size();
 
 				Vector2 popup_pos = get_screen_position() + update_mode_rect.position + Vector2(0, update_mode_rect.size.height);
@@ -2868,6 +2926,9 @@ void AnimationTrackEdit::gui_input(const Ref<InputEvent> &p_event) {
 		// Check keyframes.
 
 		if (!animation->track_is_compressed(track)) { // Selecting compressed keyframes for editing is not possible.
+			if (read_only) {
+				return;
+			}
 
 			float scale = timeline->get_zoom_scale();
 			int limit = timeline->get_name_limit();
@@ -2934,6 +2995,10 @@ void AnimationTrackEdit::gui_input(const Ref<InputEvent> &p_event) {
 	}
 
 	if (mb.is_valid() && mb->is_pressed() && mb->get_button_index() == MouseButton::RIGHT) {
+		if (read_only) {
+			return;
+		}
+
 		Point2 pos = mb->get_position();
 		if (pos.x >= timeline->get_name_limit() && pos.x <= get_size().width - timeline->get_buttons_width()) {
 			// Can do something with menu too! show insert key.
@@ -2971,6 +3036,10 @@ void AnimationTrackEdit::gui_input(const Ref<InputEvent> &p_event) {
 	}
 
 	if (mb.is_valid() && !mb->is_pressed() && mb->get_button_index() == MouseButton::LEFT && clicking_on_name) {
+		if (read_only) {
+			return;
+		}
+
 		if (!path) {
 			path_popup = memnew(Popup);
 			path_popup->set_wrap_controls(true);
@@ -2992,6 +3061,10 @@ void AnimationTrackEdit::gui_input(const Ref<InputEvent> &p_event) {
 	}
 
 	if (mb.is_valid() && moving_selection_attempt) {
+		if (read_only) {
+			return;
+		}
+
 		if (!mb->is_pressed() && mb->get_button_index() == MouseButton::LEFT) {
 			moving_selection_attempt = false;
 			if (moving_selection) {
@@ -3065,6 +3138,10 @@ void AnimationTrackEdit::gui_input(const Ref<InputEvent> &p_event) {
 	}
 
 	if (mm.is_valid() && (mm->get_button_mask() & MouseButton::MASK_LEFT) != MouseButton::NONE && moving_selection_attempt) {
+		if (read_only) {
+			return;
+		}
+
 		if (!moving_selection) {
 			moving_selection = true;
 			emit_signal(SNAME("move_selection_begin"));
@@ -3076,7 +3153,7 @@ void AnimationTrackEdit::gui_input(const Ref<InputEvent> &p_event) {
 }
 
 Variant AnimationTrackEdit::get_drag_data(const Point2 &p_point) {
-	if (!clicking_on_name) {
+	if (!clicking_on_name || read_only) {
 		return Variant();
 	}
 
@@ -3207,6 +3284,15 @@ void AnimationTrackEdit::_menu_selected(int p_index) {
 			emit_signal(SNAME("delete_request"));
 
 		} break;
+		case MENU_AUTO_VOLUME_DISABLE:
+		case MENU_AUTO_VOLUME_ENABLE: {
+			bool auto_volume = p_index == MENU_AUTO_VOLUME_ENABLE;
+			undo_redo->create_action(TTR("Change Animation Auto Volume"));
+			undo_redo->add_do_method(animation.ptr(), "audio_track_set_auto_volume", track, auto_volume);
+			undo_redo->add_undo_method(animation.ptr(), "audio_track_set_auto_volume", track, animation->audio_track_get_auto_volume(track));
+			undo_redo->commit_action();
+			update();
+		} break;
 	}
 }
 
@@ -3220,6 +3306,15 @@ void AnimationTrackEdit::cancel_drop() {
 void AnimationTrackEdit::set_in_group(bool p_enable) {
 	in_group = p_enable;
 	update();
+}
+
+void AnimationTrackEdit::set_read_only(bool p_read_only) {
+	read_only = p_read_only;
+	update();
+}
+
+bool AnimationTrackEdit::get_read_only() {
+	return read_only;
 }
 
 void AnimationTrackEdit::append_to_selection(const Rect2 &p_box, bool p_deselection) {
@@ -3269,6 +3364,17 @@ void AnimationTrackEdit::_bind_methods() {
 }
 
 AnimationTrackEdit::AnimationTrackEdit() {
+	undo_redo = nullptr;
+	timeline = nullptr;
+	root = nullptr;
+	path = nullptr;
+	path_popup = nullptr;
+	menu = nullptr;
+	dropping_at = 0;
+
+	select_single_attempt = -1;
+
+	play_position_pos = 0;
 	play_position = memnew(Control);
 	play_position->set_mouse_filter(MOUSE_FILTER_PASS);
 	add_child(play_position);
@@ -3642,8 +3748,23 @@ void AnimationTrackEditor::_animation_track_remove_request(int p_track, Ref<Anim
 		}
 
 		undo_redo->add_undo_method(p_from_animation.ptr(), "track_set_interpolation_type", idx, p_from_animation->track_get_interpolation_type(idx));
-		if (p_from_animation->track_get_type(idx) == Animation::TYPE_VALUE) {
+		undo_redo->add_undo_method(p_from_animation.ptr(), "track_set_interpolation_loop_wrap", idx, p_from_animation->track_get_interpolation_loop_wrap(idx));
+		if (animation->track_get_type(idx) == Animation::TYPE_VALUE) {
 			undo_redo->add_undo_method(p_from_animation.ptr(), "value_track_set_update_mode", idx, p_from_animation->value_track_get_update_mode(idx));
+		}
+		if (animation->track_get_type(idx) == Animation::TYPE_AUDIO) {
+			undo_redo->add_undo_method(p_from_animation.ptr(), "audio_track_set_auto_volume", idx, p_from_animation->audio_track_get_auto_volume(idx));
+		}
+		if (animation->track_is_retarget(idx)) {
+			if (animation->track_get_type(idx) == Animation::TYPE_POSITION_3D) {
+				undo_redo->add_undo_method(p_from_animation.ptr(), "position_track_set_retarget_mode", idx, p_from_animation->position_track_get_retarget_mode(idx));
+			}
+			if (animation->track_get_type(idx) == Animation::TYPE_ROTATION_3D) {
+				undo_redo->add_undo_method(p_from_animation.ptr(), "rotation_track_set_retarget_mode", idx, p_from_animation->rotation_track_get_retarget_mode(idx));
+			}
+			if (animation->track_get_type(idx) == Animation::TYPE_SCALE_3D) {
+				undo_redo->add_undo_method(p_from_animation.ptr(), "scale_track_set_retarget_mode", idx, p_from_animation->scale_track_get_retarget_mode(idx));
+			}
 		}
 
 		undo_redo->commit_action();
@@ -4448,6 +4569,7 @@ void AnimationTrackEditor::_update_tracks() {
 	}
 
 	Map<String, VBoxContainer *> group_sort;
+	VBoxContainer *retarget_vbox = nullptr;
 
 	bool use_grouping = !view_group->is_pressed();
 	bool use_filter = selected_filter->is_pressed();
@@ -4534,39 +4656,59 @@ void AnimationTrackEditor::_update_tracks() {
 
 		track_edits.push_back(track_edit);
 
-		if (use_grouping) {
-			String base_path = animation->track_get_path(i);
-			base_path = base_path.get_slice(":", 0); // Remove sub-path.
+		bool is_retarget_track = animation->track_is_retarget(i);
+		if (use_grouping || is_retarget_track) {
+			if (is_retarget_track) {
+				// Special case for retarget tracks.
+				if (!retarget_vbox) {
+					AnimationTrackEditGroup *retarget_group = memnew(AnimationTrackEditGroup);
+					retarget_group->set_type_and_name(get_theme_icon(SNAME("SkeletonRetarget"), SNAME("EditorIcons")), "== Retarget ==", animation->track_get_path(i));
+					retarget_group->set_root(root);
+					retarget_group->set_tooltip(TTR("Intermediate Bones for retarget."));
+					retarget_group->set_timeline(timeline);
+					groups.insert(0, retarget_group); // Insert to top since it's special tracks and readonly, so it get in the way multiple keys selection.
+					retarget_vbox = memnew(VBoxContainer);
+					retarget_vbox->add_theme_constant_override("separation", 0);
+					retarget_vbox->add_child(retarget_group);
+					track_vbox->add_child(retarget_vbox);
+				}
+				track_edit->set_read_only(true);
+				track_edit->set_in_group(true);
+				retarget_vbox->add_child(track_edit);
+			} else {
+				// Normal tracks.
+				String base_path = animation->track_get_path(i);
+				base_path = base_path.get_slice(":", 0); // Remove sub-path.
 
-			if (!group_sort.has(base_path)) {
-				AnimationTrackEditGroup *g = memnew(AnimationTrackEditGroup);
-				Ref<Texture2D> icon = get_theme_icon(SNAME("Node"), SNAME("EditorIcons"));
-				String name = base_path;
-				String tooltip;
-				if (root && root->has_node(base_path)) {
-					Node *n = root->get_node(base_path);
-					if (n) {
-						icon = EditorNode::get_singleton()->get_object_icon(n, "Node");
-						name = n->get_name();
-						tooltip = root->get_path_to(n);
+				if (!group_sort.has(base_path)) {
+					AnimationTrackEditGroup *g = memnew(AnimationTrackEditGroup);
+					Ref<Texture2D> icon = get_theme_icon(SNAME("Node"), SNAME("EditorIcons"));
+					String name = base_path;
+					String tooltip;
+					if (root && root->has_node(base_path)) {
+						Node *n = root->get_node(base_path);
+						if (n) {
+							icon = EditorNode::get_singleton()->get_object_icon(n, "Node");
+							name = n->get_name();
+							tooltip = root->get_path_to(n);
+						}
 					}
+
+					g->set_type_and_name(icon, name, animation->track_get_path(i));
+					g->set_root(root);
+					g->set_tooltip(tooltip);
+					g->set_timeline(timeline);
+					groups.push_back(g);
+					VBoxContainer *vb = memnew(VBoxContainer);
+					vb->add_theme_constant_override("separation", 0);
+					vb->add_child(g);
+					track_vbox->add_child(vb);
+					group_sort[base_path] = vb;
 				}
 
-				g->set_type_and_name(icon, name, animation->track_get_path(i));
-				g->set_root(root);
-				g->set_tooltip(tooltip);
-				g->set_timeline(timeline);
-				groups.push_back(g);
-				VBoxContainer *vb = memnew(VBoxContainer);
-				vb->add_theme_constant_override("separation", 0);
-				vb->add_child(g);
-				track_vbox->add_child(vb);
-				group_sort[base_path] = vb;
+				track_edit->set_in_group(true);
+				group_sort[base_path]->add_child(track_edit);
 			}
-
-			track_edit->set_in_group(true);
-			group_sort[base_path]->add_child(track_edit);
-
 		} else {
 			track_edit->set_in_group(false);
 			track_vbox->add_child(track_edit);
@@ -5146,6 +5288,9 @@ void AnimationTrackEditor::_add_method_key(const String &p_method) {
 void AnimationTrackEditor::_key_selected(int p_key, bool p_single, int p_track) {
 	ERR_FAIL_INDEX(p_track, animation->get_track_count());
 	ERR_FAIL_INDEX(p_key, animation->track_get_key_count(p_track));
+	if (track_edits[p_track]->get_read_only()) {
+		return;
+	}
 
 	SelectedKey sk;
 	sk.key = p_key;
@@ -5700,6 +5845,9 @@ void AnimationTrackEditor::_edit_menu_pressed(int p_option) {
 			TreeItem *troot = track_copy_select->create_item();
 
 			for (int i = 0; i < animation->get_track_count(); i++) {
+				if (animation->track_is_retarget(i)) {
+					continue;
+				}
 				NodePath path = animation->track_get_path(i);
 				Node *node = nullptr;
 
@@ -5791,6 +5939,9 @@ void AnimationTrackEditor::_edit_menu_pressed(int p_option) {
 						if (tc.track_type == Animation::TYPE_VALUE) {
 							tc.update_mode = animation->value_track_get_update_mode(idx);
 						}
+						if (tc.track_type == Animation::TYPE_AUDIO) {
+							tc.auto_volume = animation->audio_track_get_auto_volume(idx);
+						}
 						tc.loop_wrap = animation->track_get_interpolation_loop_wrap(idx);
 						tc.enabled = animation->track_is_enabled(idx);
 						for (int i = 0; i < animation->track_get_key_count(idx); i++) {
@@ -5833,6 +5984,9 @@ void AnimationTrackEditor::_edit_menu_pressed(int p_option) {
 				undo_redo->add_do_method(animation.ptr(), "track_set_enabled", base_track, track_clipboard[i].enabled);
 				if (track_clipboard[i].track_type == Animation::TYPE_VALUE) {
 					undo_redo->add_do_method(animation.ptr(), "value_track_set_update_mode", base_track, track_clipboard[i].update_mode);
+				}
+				if (track_clipboard[i].track_type == Animation::TYPE_AUDIO) {
+					undo_redo->add_do_method(animation.ptr(), "audio_track_set_auto_volume", base_track, track_clipboard[i].auto_volume);
 				}
 
 				for (int j = 0; j < track_clipboard[i].keys.size(); j++) {
@@ -6291,6 +6445,8 @@ void AnimationTrackEditor::_pick_track_filter_input(const Ref<InputEvent> &p_ie)
 }
 
 AnimationTrackEditor::AnimationTrackEditor() {
+	root = nullptr;
+
 	undo_redo = EditorNode::get_singleton()->get_undo_redo();
 
 	main_panel = memnew(PanelContainer);
@@ -6503,6 +6659,8 @@ AnimationTrackEditor::AnimationTrackEditor() {
 	insert_confirm_reset->set_text(TTR("Create RESET Track(s)", ""));
 	insert_confirm_reset->set_pressed(EDITOR_GET("editors/animation/default_create_reset_tracks"));
 	ichb->add_child(insert_confirm_reset);
+	key_edit = nullptr;
+	multi_key_edit = nullptr;
 
 	box_selection = memnew(Control);
 	add_child(box_selection);
