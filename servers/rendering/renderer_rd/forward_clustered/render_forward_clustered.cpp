@@ -278,6 +278,13 @@ void RenderForwardClustered::_allocate_normal_roughness_texture(RenderBufferData
 	tf.width = rb->width;
 	tf.height = rb->height;
 	tf.usage_bits = RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT;
+	if (rb->view_count > 1) {
+		tf.texture_type = RD::TEXTURE_TYPE_2D_ARRAY;
+	}
+	else {
+		tf.texture_type = RD::TEXTURE_TYPE_2D;
+	}
+	tf.array_layers = rb->view_count; // create a layer for every view
 
 	if (rb->msaa != RS::VIEWPORT_MSAA_DISABLED) {
 		tf.usage_bits |= RD::TEXTURE_USAGE_CAN_COPY_TO_BIT | RD::TEXTURE_USAGE_STORAGE_BIT;
@@ -291,7 +298,7 @@ void RenderForwardClustered::_allocate_normal_roughness_texture(RenderBufferData
 		Vector<RID> fb;
 		fb.push_back(rb->depth);
 		fb.push_back(rb->normal_roughness_buffer);
-		rb->depth_normal_roughness_fb = RD::get_singleton()->framebuffer_create(fb);
+		rb->depth_normal_roughness_fb = RD::get_singleton()->framebuffer_create(fb, RenderingDevice::INVALID_ID, rb->view_count);
 	} else {
 		tf.usage_bits = RD::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RD::TEXTURE_USAGE_CAN_COPY_FROM_BIT | RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT;
 		tf.samples = rb->texture_samples;
@@ -300,7 +307,7 @@ void RenderForwardClustered::_allocate_normal_roughness_texture(RenderBufferData
 		Vector<RID> fb;
 		fb.push_back(rb->depth_msaa);
 		fb.push_back(rb->normal_roughness_buffer_msaa);
-		rb->depth_normal_roughness_fb = RD::get_singleton()->framebuffer_create(fb);
+		rb->depth_normal_roughness_fb = RD::get_singleton()->framebuffer_create(fb, RenderingDevice::INVALID_ID, rb->view_count);
 	}
 }
 
