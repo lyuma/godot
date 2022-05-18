@@ -284,8 +284,6 @@ void SceneShaderForwardClustered::ShaderData::set_code(const String &p_code) {
 					SHADER_VERSION_DEPTH_PASS_MULTIVIEW,
 					SHADER_VERSION_DEPTH_PASS_WITH_NORMAL_AND_ROUGHNESS_MULTIVIEW,
 					SHADER_VERSION_DEPTH_PASS_WITH_NORMAL_AND_ROUGHNESS_AND_VOXEL_GI_MULTIVIEW,
-					SHADER_VERSION_DEPTH_PASS_WITH_MATERIAL_MULTIVIEW,
-					SHADER_VERSION_DEPTH_PASS_WITH_SDF_MULTIVIEW,
 					SHADER_VERSION_COLOR_PASS,
 				};
 
@@ -353,9 +351,9 @@ void SceneShaderForwardClustered::ShaderData::set_code(const String &p_code) {
 						blend_state = blend_state_depth_normal_roughness;
 					} else if (k == PIPELINE_VERSION_DEPTH_PASS_WITH_NORMAL_AND_ROUGHNESS_AND_VOXEL_GI || k == PIPELINE_VERSION_DEPTH_PASS_WITH_NORMAL_AND_ROUGHNESS_AND_VOXEL_GI_MULTIVIEW) {
 						blend_state = blend_state_depth_normal_roughness_giprobe;
-					} else if (k == PIPELINE_VERSION_DEPTH_PASS_WITH_MATERIAL || k == PIPELINE_VERSION_DEPTH_PASS_WITH_MATERIAL_MULTIVIEW) {
+					} else if (k == PIPELINE_VERSION_DEPTH_PASS_WITH_MATERIAL) {
 						blend_state = RD::PipelineColorBlendState::create_disabled(5); //writes to normal and roughness in opaque way
-					} else if (k == PIPELINE_VERSION_DEPTH_PASS_WITH_SDF || k == PIPELINE_VERSION_DEPTH_PASS_WITH_SDF_MULTIVIEW) {
+					} else if (k == PIPELINE_VERSION_DEPTH_PASS_WITH_SDF) {
 						blend_state = RD::PipelineColorBlendState(); //no color targets for SDF
 					}
 
@@ -533,8 +531,6 @@ void SceneShaderForwardClustered::init(RendererStorageRD *p_storage, const Strin
 		shader_versions.push_back("\n#define USE_MULTIVIEW\n#define MODE_RENDER_DEPTH\n"); // SHADER_VERSION_DEPTH_PASS_MULTIVIEW
 		shader_versions.push_back("\n#define USE_MULTIVIEW\n#define MODE_RENDER_DEPTH\n#define MODE_RENDER_NORMAL_ROUGHNESS\n"); // SHADER_VERSION_DEPTH_PASS_WITH_NORMAL_AND_ROUGHNESS_MULTIVIEW
 		shader_versions.push_back("\n#define USE_MULTIVIEW\n#define MODE_RENDER_DEPTH\n#define MODE_RENDER_NORMAL_ROUGHNESS\n#define MODE_RENDER_VOXEL_GI\n"); // SHADER_VERSION_DEPTH_PASS_WITH_NORMAL_AND_ROUGHNESS_AND_GIPROBE_MULTIVIEW
-		shader_versions.push_back("\n#define USE_MULTIVIEW\n#define MODE_RENDER_DEPTH\n#define MODE_RENDER_MATERIAL\n"); // SHADER_VERSION_DEPTH_PASS_WITH_MATERIAL_MULTIVIEW
-		shader_versions.push_back("\n#define USE_MULTIVIEW\n#define MODE_RENDER_DEPTH\n#define MODE_RENDER_SDF\n"); // SHADER_VERSION_DEPTH_PASS_WITH_SDF_MULTIVIEW
 
 		Vector<String> color_pass_flags = {
 			"\n#define MODE_SEPARATE_SPECULAR\n", // SHADER_COLOR_PASS_FLAG_SEPARATE_SPECULAR
@@ -558,8 +554,6 @@ void SceneShaderForwardClustered::init(RendererStorageRD *p_storage, const Strin
 			shader.set_variant_enabled(SHADER_VERSION_DEPTH_PASS_MULTIVIEW, false);
 			shader.set_variant_enabled(SHADER_VERSION_DEPTH_PASS_WITH_NORMAL_AND_ROUGHNESS_MULTIVIEW, false);
 			shader.set_variant_enabled(SHADER_VERSION_DEPTH_PASS_WITH_NORMAL_AND_ROUGHNESS_AND_VOXEL_GI_MULTIVIEW, false);
-			shader.set_variant_enabled(SHADER_VERSION_DEPTH_PASS_WITH_MATERIAL_MULTIVIEW, false);
-			shader.set_variant_enabled(SHADER_VERSION_DEPTH_PASS_WITH_SDF_MULTIVIEW, false);
 			// TODO Add a way to enable/disable color pass flags
 		}
 	}
