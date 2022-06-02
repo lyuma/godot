@@ -1951,8 +1951,7 @@ void RenderForwardMobile::_render_list_template(RenderingDevice::DrawListID p_dr
 				shader_version = SceneShaderForwardMobile::SHADER_VERSION_SHADOW_PASS_DP;
 			} break;
 			case PASS_MODE_DEPTH_MATERIAL: {
-				ERR_FAIL_COND_MSG(p_params->view_count > 1, "Multiview not supported for material pass");
-				shader_version = SceneShaderForwardMobile::SHADER_VERSION_DEPTH_PASS_WITH_MATERIAL;
+				shader_version = p_params->view_count > 1 ? SceneShaderForwardMobile::SHADER_VERSION_DEPTH_PASS_WITH_MATERIAL_MULTIVIEW : SceneShaderForwardMobile::SHADER_VERSION_DEPTH_PASS_WITH_MATERIAL;
 			} break;
 		}
 

@@ -301,7 +301,7 @@ void SceneShaderForwardMobile::ShaderData::set_code(const String &p_code) {
 						}
 					} else if (k == SHADER_VERSION_SHADOW_PASS || k == SHADER_VERSION_SHADOW_PASS_MULTIVIEW || k == SHADER_VERSION_SHADOW_PASS_DP) {
 						//none, blend state contains nothing
-					} else if (k == SHADER_VERSION_DEPTH_PASS_WITH_MATERIAL) {
+					} else if (k == SHADER_VERSION_DEPTH_PASS_WITH_MATERIAL || k == SHADER_VERSION_DEPTH_PASS_WITH_MATERIAL_MULTIVIEW) {
 						blend_state = RD::PipelineColorBlendState::create_disabled(5); //writes to normal and roughness in opaque way
 					} else {
 						pipelines[i][j][k].clear();
@@ -312,7 +312,7 @@ void SceneShaderForwardMobile::ShaderData::set_code(const String &p_code) {
 						blend_state = blend_state_opaque;
 					} else if (k == SHADER_VERSION_SHADOW_PASS || k == SHADER_VERSION_SHADOW_PASS_MULTIVIEW || k == SHADER_VERSION_SHADOW_PASS_DP) {
 						//none, leave empty
-					} else if (k == SHADER_VERSION_DEPTH_PASS_WITH_MATERIAL) {
+					} else if (k == SHADER_VERSION_DEPTH_PASS_WITH_MATERIAL || k == SHADER_VERSION_DEPTH_PASS_WITH_MATERIAL_MULTIVIEW) {
 						blend_state = RD::PipelineColorBlendState::create_disabled(5); //writes to normal and roughness in opaque way
 					} else {
 						// ???
@@ -484,6 +484,7 @@ void SceneShaderForwardMobile::init(RendererStorageRD *p_storage, const String p
 		shader_versions.push_back("\n#define USE_MULTIVIEW\n"); // SHADER_VERSION_COLOR_PASS_MULTIVIEW
 		shader_versions.push_back("\n#define USE_MULTIVIEW\n#define USE_LIGHTMAP\n"); // SHADER_VERSION_LIGHTMAP_COLOR_PASS_MULTIVIEW
 		shader_versions.push_back("\n#define USE_MULTIVIEW\n#define MODE_RENDER_DEPTH\n"); // SHADER_VERSION_SHADOW_PASS_MULTIVIEW
+		shader_versions.push_back("\n#define USE_MULTIVIEW\n#define MODE_RENDER_DEPTH\n#define MODE_RENDER_MATERIAL\n"); // SHADER_VERSION_DEPTH_PASS_WITH_MATERIAL_MULTIVIEW
 
 		shader.initialize(shader_versions, p_defines);
 
@@ -491,6 +492,7 @@ void SceneShaderForwardMobile::init(RendererStorageRD *p_storage, const String p
 			shader.set_variant_enabled(SHADER_VERSION_COLOR_PASS_MULTIVIEW, false);
 			shader.set_variant_enabled(SHADER_VERSION_LIGHTMAP_COLOR_PASS_MULTIVIEW, false);
 			shader.set_variant_enabled(SHADER_VERSION_SHADOW_PASS_MULTIVIEW, false);
+			shader.set_variant_enabled(SHADER_VERSION_DEPTH_PASS_WITH_MATERIAL_MULTIVIEW, false);
 		}
 	}
 
