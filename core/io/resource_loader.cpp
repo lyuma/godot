@@ -159,6 +159,26 @@ Ref<Resource> ResourceFormatLoader::load(const String &p_path, const String &p_o
 	ERR_FAIL_V_MSG(Ref<Resource>(), "Failed to load resource '" + p_path + "'. ResourceFormatLoader::load was not implemented for this resource type.");
 }
 
+/*
+Ref<Resource> ResourceFormatLoader::load_whitelisted(const String &p_path, Dictionary p_external_path_whitelist, Dictionary p_type_whitelist, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
+	Variant res;
+	if (GDVIRTUAL_CALL(_load_whitelisted, p_path, p_external_path_whitelist, p_type_whitelist, p_original_path, p_use_sub_threads, p_cache_mode, res)) {
+		if (res.get_type() == Variant::INT) { // Error code, abort.
+			if (r_error) {
+				*r_error = (Error)res.operator int64_t();
+			}
+			return Ref<Resource>();
+		} else { // Success, pass on result.
+			if (r_error) {
+				*r_error = OK;
+			}
+			return res;
+		}
+	}
+
+	ERR_FAIL_V_MSG(Ref<Resource>(), "Failed to load resource '" + p_path + "'. ResourceFormatLoader::load_whitelisted was not implemented for this resource type.");
+}*/
+
 void ResourceFormatLoader::get_dependencies(const String &p_path, List<String> *p_dependencies, bool p_add_types) {
 	PackedStringArray deps;
 	if (GDVIRTUAL_CALL(_get_dependencies, p_path, p_add_types, deps)) {
@@ -197,11 +217,12 @@ void ResourceFormatLoader::_bind_methods() {
 	GDVIRTUAL_BIND(_exists, "path");
 	GDVIRTUAL_BIND(_get_classes_used, "path");
 	GDVIRTUAL_BIND(_load, "path", "original_path", "use_sub_threads", "cache_mode");
+	//GDVIRTUAL_BIND(_load_whitelisted, "path", "external_path_whitelist", "type_Whitelist", "original_path", "use_sub_threads", "cache_mode");
 }
 
 ///////////////////////////////////
 
-Ref<Resource> ResourceLoader::_load(const String &p_path, const String &p_original_path, const String &p_type_hint, ResourceFormatLoader::CacheMode p_cache_mode, Error *r_error, bool p_use_sub_threads, float *r_progress) {
+Ref<Resource> ResourceLoader::_load(const String &p_path, const String &p_original_path, const String &p_type_hint, ResourceFormatLoader::CacheMode p_cache_mode, bool p_using_whitelist, Dictionary p_external_path_whitelist, Dictionary p_type_whitelist, Error *r_error, bool p_use_sub_threads, float *r_progress) {
 	bool found = false;
 
 	// Try all loaders and pick the first match for the type hint
@@ -210,7 +231,12 @@ Ref<Resource> ResourceLoader::_load(const String &p_path, const String &p_origin
 			continue;
 		}
 		found = true;
-		Ref<Resource> res = loader[i]->load(p_path, !p_original_path.is_empty() ? p_original_path : p_path, r_error, p_use_sub_threads, r_progress, p_cache_mode);
+		Ref<Resource> res;
+		if (p_using_whitelist) {
+			res = loader[i]->load_whitelisted(p_path, p_external_path_whitelist, p_type_whitelist, !p_original_path.is_empty() ? p_original_path : p_path, r_error, p_use_sub_threads, r_progress, p_cache_mode);
+		} else {
+			res = loader[i]->load(p_path, !p_original_path.is_empty() ? p_original_path : p_path, r_error, p_use_sub_threads, r_progress, p_cache_mode);
+		}
 		if (res.is_null()) {
 			continue;
 		}
@@ -237,7 +263,7 @@ void ResourceLoader::_thread_load_function(void *p_userdata) {
 		//this is an actual thread, so wait for Ok from semaphore
 		thread_load_semaphore->wait(); //wait until its ok to start loading
 	}
-	load_task.resource = _load(load_task.remapped_path, load_task.remapped_path != load_task.local_path ? load_task.local_path : String(), load_task.type_hint, load_task.cache_mode, &load_task.error, load_task.use_sub_threads, &load_task.progress);
+	load_task.resource = _load(load_task.remapped_path, load_task.remapped_path != load_task.local_path ? load_task.local_path : String(), load_task.type_hint, load_task.cache_mode, load_task.using_whitelist, load_task.external_path_whitelist, load_task.type_whitelist, &load_task.error, load_task.use_sub_threads, &load_task.progress);
 
 	load_task.progress = 1.0; //it was fully loaded at this point, so force progress to 1.0
 
@@ -300,7 +326,16 @@ static String _validate_local_path(const String &p_path) {
 		return ProjectSettings::get_singleton()->localize_path(p_path);
 	}
 }
+
 Error ResourceLoader::load_threaded_request(const String &p_path, const String &p_type_hint, bool p_use_sub_threads, ResourceFormatLoader::CacheMode p_cache_mode, const String &p_source_resource) {
+	return _load_threaded_request_whitelisted_int(p_path, p_type_hint, p_use_sub_threads, p_cache_mode, p_source_resource, false, Dictionary(), Dictionary());
+}
+
+Error ResourceLoader::load_threaded_request_whitelisted(const String &p_path, Dictionary p_external_path_whitelist, Dictionary p_type_whitelist, const String &p_type_hint, bool p_use_sub_threads, ResourceFormatLoader::CacheMode p_cache_mode, const String &p_source_resource) {
+	return _load_threaded_request_whitelisted_int(p_path, p_type_hint, p_use_sub_threads, p_cache_mode, p_source_resource, true, p_external_path_whitelist, p_type_whitelist);
+}
+
+Error ResourceLoader::_load_threaded_request_whitelisted_int(const String &p_path, const String &p_type_hint, bool p_use_sub_threads, ResourceFormatLoader::CacheMode p_cache_mode, const String &p_source_resource, bool p_use_whitelist, Dictionary p_external_path_whitelist, Dictionary p_type_whitelist) {
 	String local_path = _validate_local_path(p_path);
 
 	thread_load_mutex->lock();
@@ -344,6 +379,9 @@ Error ResourceLoader::load_threaded_request(const String &p_path, const String &
 		load_task.type_hint = p_type_hint;
 		load_task.cache_mode = p_cache_mode;
 		load_task.use_sub_threads = p_use_sub_threads;
+		load_task.using_whitelist = p_use_whitelist;
+		load_task.external_path_whitelist = p_external_path_whitelist;
+		load_task.type_whitelist = p_type_whitelist;
 
 		{ //must check if resource is already loaded before attempting to load it in a thread
 
@@ -513,6 +551,14 @@ Ref<Resource> ResourceLoader::load_threaded_get(const String &p_path, Error *r_e
 }
 
 Ref<Resource> ResourceLoader::load(const String &p_path, const String &p_type_hint, ResourceFormatLoader::CacheMode p_cache_mode, Error *r_error) {
+	return _load_whitelisted_int(p_path, p_type_hint, p_cache_mode, false, Dictionary(), Dictionary(), r_error);
+}
+
+Ref<Resource> ResourceLoader::load_whitelisted(const String &p_path, Dictionary p_external_path_whitelist, Dictionary p_type_whitelist, const String &p_type_hint, ResourceFormatLoader::CacheMode p_cache_mode, Error *r_error) {
+	return _load_whitelisted_int(p_path, p_type_hint, p_cache_mode, true, p_external_path_whitelist, p_type_whitelist, r_error);
+}
+
+Ref<Resource> ResourceLoader::_load_whitelisted_int(const String &p_path, const String &p_type_hint, ResourceFormatLoader::CacheMode p_cache_mode, bool p_using_whitelist, Dictionary p_external_path_whitelist, Dictionary p_type_whitelist, Error *r_error) {
 	if (r_error) {
 		*r_error = ERR_CANT_OPEN;
 	}
@@ -560,6 +606,9 @@ Ref<Resource> ResourceLoader::load(const String &p_path, const String &p_type_hi
 		load_task.type_hint = p_type_hint;
 		load_task.cache_mode = p_cache_mode; //ignore
 		load_task.loader_id = Thread::get_caller_id();
+		load_task.using_whitelist = p_using_whitelist;
+		load_task.external_path_whitelist = p_external_path_whitelist;
+		load_task.type_whitelist = p_type_whitelist;
 
 		thread_load_tasks[local_path] = load_task;
 
@@ -579,7 +628,7 @@ Ref<Resource> ResourceLoader::load(const String &p_path, const String &p_type_hi
 
 		print_verbose("Loading resource: " + path);
 		float p;
-		Ref<Resource> res = _load(path, local_path, p_type_hint, p_cache_mode, r_error, false, &p);
+		Ref<Resource> res = _load(path, local_path, p_type_hint, p_cache_mode, p_using_whitelist, p_external_path_whitelist, p_type_whitelist, r_error, false, &p);
 
 		if (res.is_null()) {
 			print_verbose("Failed loading resource: " + path);

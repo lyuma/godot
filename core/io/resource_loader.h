@@ -63,6 +63,9 @@ protected:
 
 public:
 	virtual Ref<Resource> load(const String &p_path, const String &p_original_path = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_REUSE);
+	virtual Ref<Resource> load_whitelisted(const String &p_path, Dictionary p_external_path_whitelist, Dictionary p_type_whitelist, const String &p_original_path = "", Error *r_error = nullptr, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_REUSE) {
+		return Ref<Resource>();
+	}
 	virtual bool exists(const String &p_path) const;
 	virtual void get_recognized_extensions(List<String> *p_extensions) const;
 	virtual void get_recognized_extensions_for_type(const String &p_type, List<String> *p_extensions) const;
@@ -124,7 +127,7 @@ private:
 	friend class ResourceFormatImporter;
 	friend class ResourceInteractiveLoader;
 	// Internal load function.
-	static Ref<Resource> _load(const String &p_path, const String &p_original_path, const String &p_type_hint, ResourceFormatLoader::CacheMode p_cache_mode, Error *r_error, bool p_use_sub_threads, float *r_progress);
+	static Ref<Resource> _load(const String &p_path, const String &p_original_path, const String &p_type_hint, ResourceFormatLoader::CacheMode p_cache_mode, bool p_using_whitelist, Dictionary p_external_path_whitelist, Dictionary p_type_whitelist, Error *r_error, bool p_use_sub_threads, float *r_progress);
 
 	static ResourceLoadedCallback _loaded_callback;
 
@@ -145,9 +148,13 @@ private:
 		bool xl_remapped = false;
 		bool use_sub_threads = false;
 		bool start_next = true;
+		bool using_whitelist = false;
 		int requests = 0;
 		int poll_requests = 0;
 		HashSet<String> sub_tasks;
+		Dictionary external_path_whitelist;
+		Dictionary type_whitelist;
+
 	};
 
 	static void _thread_load_function(void *p_userdata);
@@ -161,11 +168,16 @@ private:
 
 	static float _dependency_get_progress(const String &p_path);
 
+	static Error _load_threaded_request_whitelisted_int(const String &p_path, const String &p_type_hint, bool p_use_sub_threads, ResourceFormatLoader::CacheMode p_cache_mode, const String &p_source_resource, bool p_use_whitelist, Dictionary p_external_path_whitelist, Dictionary p_type_whitelist);
+	static Ref<Resource> _load_whitelisted_int(const String &p_path, const String &p_type_hint, ResourceFormatLoader::CacheMode p_cache_mode, bool p_use_whitelist, Dictionary p_external_path_whitelist, Dictionary type_whitelist, Error *r_error);
+
 public:
+	static Error load_threaded_request_whitelisted(const String &p_path, Dictionary p_external_path_whitelist, Dictionary p_type_whitelist, const String &p_type_hint = "", bool p_use_sub_threads = false, ResourceFormatLoader::CacheMode p_cache_mode = ResourceFormatLoader::CACHE_MODE_REUSE, const String &p_source_resource = String());
 	static Error load_threaded_request(const String &p_path, const String &p_type_hint = "", bool p_use_sub_threads = false, ResourceFormatLoader::CacheMode p_cache_mode = ResourceFormatLoader::CACHE_MODE_REUSE, const String &p_source_resource = String());
 	static ThreadLoadStatus load_threaded_get_status(const String &p_path, float *r_progress = nullptr);
 	static Ref<Resource> load_threaded_get(const String &p_path, Error *r_error = nullptr);
 
+	static Ref<Resource> load_whitelisted(const String &p_path, Dictionary p_external_path_whitelist, Dictionary type_whitelist, const String &p_type_hint = "", ResourceFormatLoader::CacheMode p_cache_mode = ResourceFormatLoader::CACHE_MODE_REUSE, Error *r_error = nullptr);
 	static Ref<Resource> load(const String &p_path, const String &p_type_hint = "", ResourceFormatLoader::CacheMode p_cache_mode = ResourceFormatLoader::CACHE_MODE_REUSE, Error *r_error = nullptr);
 	static bool exists(const String &p_path, const String &p_type_hint = "");
 
