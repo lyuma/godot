@@ -270,8 +270,8 @@ static Vector3 get_bone_axis_forward_vector(Skeleton3D *skeleton, int p_bone) {
 }
 
 void FabrikInverseKinematic::solve(Task *p_task, real_t blending_delta, bool override_tip_basis, bool p_use_magnet, const Vector3 &p_magnet_position) {
-	if (blending_delta <= 0.01f) {
-		// Before skipping, make sure we undo the global pose overrides
+	{
+		// Before skipping or solving, make sure we undo the global pose overrides
 		ChainItem *ci(&p_task->chain.chain_root);
 		while (ci) {
 			p_task->skeleton->set_bone_global_pose_override(ci->bone, ci->initial_transform, 0.0, false);
@@ -282,7 +282,9 @@ void FabrikInverseKinematic::solve(Task *p_task, real_t blending_delta, bool ove
 				ci = nullptr;
 			}
 		}
+	}
 
+	if (blending_delta <= 0.01f) {
 		return; // Skip solving
 	}
 
