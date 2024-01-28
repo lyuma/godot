@@ -47,6 +47,7 @@
 #include "editor/editor_string_names.h"
 #include "main/main.h"
 #include "scene/3d/bone_attachment_3d.h"
+#include "scene/3d/skeleton_modifier_3d.h"
 #include "scene/animation/animation_tree.h"
 #include "scene/gui/color_picker.h"
 #include "scene/gui/dialogs.h"
@@ -5508,9 +5509,14 @@ void EditorNode::_notify_scene_updated(Node *p_node) {
 	if (skel_3d) {
 		skel_3d->reset_bone_poses();
 	} else {
-		BoneAttachment3D *attachment = Object::cast_to<BoneAttachment3D>(p_node);
-		if (attachment) {
-			attachment->notify_rebind_required();
+		SkeletonModifier3D *modification = Object::cast_to<SkeletonModifier3D>(p_node);
+		if (modification) {
+			modification->notify_rebind_required();
+		} else {
+			BoneAttachment3D *att = Object::cast_to<BoneAttachment3D>(p_node);
+			if (att) {
+				att->notify_rebind_required();
+			}
 		}
 	}
 
