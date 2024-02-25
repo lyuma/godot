@@ -31,6 +31,9 @@
 #ifndef SKELETON_PROFILE_H
 #define SKELETON_PROFILE_H
 
+#ifndef _3D_DISABLED
+#include "scene/3d/skeleton_3d.h"
+#endif
 #include "texture.h"
 
 class SkeletonProfile : public Resource {
@@ -122,6 +125,10 @@ public:
 	void set_require(int p_bone_idx, const bool p_require);
 
 	bool has_bone(const StringName &p_bone_name);
+
+#ifndef _3D_DISABLED
+	void initialize_from_skeleton(Skeleton3D *p_skeleton);
+#endif
 
 	SkeletonProfile();
 	~SkeletonProfile();

@@ -83,6 +83,14 @@
 				Returns the texture of the group at [param group_idx] that will be the drawing group background image in the [BoneMap] editor.
 			</description>
 		</method>
+		<method name="initialize_from_skeleton">
+			<return type="void" />
+			<param index="0" name="skeleton" type="Skeleton3D" />
+			<description>
+				Initializes this profile to include all bones from this [Skeleton3D] and at least one group.
+				This is the operation performed by [b]Export Skeleton Profile[/b] in the Skeleton3D toolbar.
+			</description>
+		</method>
 		<method name="set_bone_name">
 			<return type="void" />
 			<param index="0" name="bone_idx" type="int" />

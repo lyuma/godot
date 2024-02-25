@@ -482,45 +482,7 @@ void Skeleton3DEditor::_file_selected(const String &p_file) {
 	Ref<SkeletonProfile> sp(memnew(SkeletonProfile));
 
 	// Build SkeletonProfile.
-	sp->set_group_size(1);
-
-	Vector<Vector2> handle_positions;
-	Vector2 position_max;
-	Vector2 position_min;
-
-	const int bone_count = skeleton->get_bone_count();
-	sp->set_bone_size(bone_count);
-	for (int i = 0; i < bone_count; i++) {
-		sp->set_bone_name(i, skeleton->get_bone_name(i));
-		int parent = skeleton->get_bone_parent(i);
-		if (parent >= 0) {
-			sp->set_bone_parent(i, skeleton->get_bone_name(parent));
-		}
-		sp->set_reference_pose(i, skeleton->get_bone_rest(i));
-
-		Transform3D grest = skeleton->get_bone_global_rest(i);
-		handle_positions.append(Vector2(grest.origin.x, grest.origin.y));
-		if (i == 0) {
-			position_max = Vector2(grest.origin.x, grest.origin.y);
-			position_min = Vector2(grest.origin.x, grest.origin.y);
-		} else {
-			position_max.x = MAX(grest.origin.x, position_max.x);
-			position_max.y = MAX(grest.origin.y, position_max.y);
-			position_min.x = MIN(grest.origin.x, position_min.x);
-			position_min.y = MIN(grest.origin.y, position_min.y);
-		}
-	}
-
-	// Layout handles provisionaly.
-	Vector2 bound = Vector2(position_max.x - position_min.x, position_max.y - position_min.y);
-	Vector2 center = Vector2((position_max.x + position_min.x) * 0.5, (position_max.y + position_min.y) * 0.5);
-	float nrm = MAX(bound.x, bound.y);
-	if (nrm > 0) {
-		for (int i = 0; i < bone_count; i++) {
-			handle_positions.write[i] = (handle_positions[i] - center) / nrm * 0.9;
-			sp->set_handle_offset(i, Vector2(0.5 + handle_positions[i].x, 0.5 - handle_positions[i].y));
-		}
-	}
+	sp->initialize_from_skeleton(skeleton);
 
 	Error err = ResourceSaver::save(sp, p_file);
 

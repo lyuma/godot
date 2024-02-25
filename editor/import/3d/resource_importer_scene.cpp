@@ -52,6 +52,7 @@
 #include "scene/resources/3d/sphere_shape_3d.h"
 #include "scene/resources/3d/world_boundary_shape_3d.h"
 #include "scene/resources/animation.h"
+#include "scene/resources/bone_map.h"
 #include "scene/resources/packed_scene.h"
 #include "scene/resources/resource_format_text.h"
 #include "scene/resources/surface_tool.h"
@@ -1156,6 +1157,26 @@ Node *ResourceImporterScene::_post_fix_node(Node *p_node, Node *p_root, HashMap<
 	}
 
 	if (Object::cast_to<Skeleton3D>(p_node)) {
+		String save_to_file;
+		if (node_settings.has("export_skeleton_profile_to_file/enabled") && bool(node_settings["export_skeleton_profile_to_file/enabled"]) && node_settings.has("export_skeleton_profile_to_file/path")) {
+			save_to_file = node_settings["export_skeleton_profile_to_file/path"];
+			if (!save_to_file.is_resource_file()) {
+				save_to_file = "";
+			}
+		}
+		Skeleton3D *skeleton = Object::cast_to<Skeleton3D>(p_node);
+		if (skeleton != nullptr && !save_to_file.is_empty()) {
+			Ref<SkeletonProfile> profile = ResourceCache::get_ref(save_to_file); // May have been erased, so check again.
+			if (!profile.is_valid()) {
+				profile.instantiate();
+			}
+			profile->initialize_from_skeleton(skeleton);
+
+			ResourceSaver::save(profile, save_to_file); //override
+
+			profile->set_path(save_to_file, true); //takeover existing, if needed
+		}
+
 		ObjectID node_id = p_node->get_instance_id();
 		for (int i = 0; i < post_importer_plugins.size(); i++) {
 			post_importer_plugins.write[i]->internal_process(EditorScenePostImportPlugin::INTERNAL_IMPORT_CATEGORY_SKELETON_3D_NODE, p_root, p_node, Ref<Resource>(), node_settings);
@@ -1745,6 +1766,8 @@ void ResourceImporterScene::get_internal_import_options(InternalImportCategory p
 		case INTERNAL_IMPORT_CATEGORY_SKELETON_3D_NODE: {
 			r_options->push_back(ImportOption(PropertyInfo(Variant::BOOL, "import/skip_import", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_UPDATE_ALL_IF_MODIFIED), false));
 			r_options->push_back(ImportOption(PropertyInfo(Variant::OBJECT, "retarget/bone_map", PROPERTY_HINT_RESOURCE_TYPE, "BoneMap", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_UPDATE_ALL_IF_MODIFIED), Variant()));
+			r_options->push_back(ImportOption(PropertyInfo(Variant::BOOL, "export_skeleton_profile_to_file/enabled", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_UPDATE_ALL_IF_MODIFIED), false));
+			r_options->push_back(ImportOption(PropertyInfo(Variant::STRING, "export_skeleton_profile_to_file/path", PROPERTY_HINT_SAVE_FILE, "*.res,*.tres"), ""));
 		} break;
 		default: {
 		}
@@ -1858,9 +1881,9 @@ bool ResourceImporterScene::get_internal_option_visibility(InternalImportCategor
 			}
 		} break;
 		case INTERNAL_IMPORT_CATEGORY_SKELETON_3D_NODE: {
-			const bool use_retarget = p_options["retarget/bone_map"].get_validated_object() != nullptr;
-			if (p_option != "retarget/bone_map" && p_option.begins_with("retarget/")) {
-				return use_retarget;
+			const bool use_retarget = Object::cast_to<BoneMap>(p_options["retarget/bone_map"].get_validated_object()) != nullptr;
+			if (!use_retarget && p_option != "retarget/bone_map" && p_option.begins_with("retarget/")) {
+				return false;
 			}
 		} break;
 		default: {
@@ -2464,6 +2487,16 @@ Error ResourceImporterScene::import(const String &p_source_file, const String &p
 	Dictionary node_data;
 	if (subresources.has("nodes")) {
 		node_data = subresources["nodes"];
+
+		// Similar to code from _check_resource_save_paths, but using a different prefix.
+		Array keys = node_data.keys();
+		for (int i = 0; i < keys.size(); i++) {
+			const Dictionary &settings = node_data[keys[i]];
+			if (bool(settings.get("export_skeleton_profile_to_file/enabled", false)) && settings.has("export_skeleton_profile_to_file/path")) {
+				const String &save_path = settings["export_skeleton_profile_to_file/path"];
+				ERR_FAIL_COND_V(!save_path.is_empty() && !DirAccess::exists(save_path.get_base_dir()), ERR_FILE_BAD_PATH);
+			}
+		}
 	}
 
 	Dictionary material_data;

@@ -42,6 +42,17 @@ void PostImportPluginSkeletonRestFixer::get_internal_import_options(InternalImpo
 		r_options->push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::BOOL, "retarget/rest_fixer/apply_node_transforms"), true));
 		r_options->push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::BOOL, "retarget/rest_fixer/normalize_position_tracks"), true));
 		r_options->push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::BOOL, "retarget/rest_fixer/overwrite_axis"), true));
+		r_options->push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::OBJECT, "retarget/rest_fixer/silhouette_template", PROPERTY_HINT_RESOURCE_TYPE, "SkeletonProfile", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_UPDATE_ALL_IF_MODIFIED), Variant()));
+		String mismatched_or_empty_profile_warning = String(
+				"Export this profile from a matching skeleton. "
+				"Use Export Profile from the Skeleton3D toolbar "
+				"from a model imported without BoneMap."); // TODO: translate.
+		r_options->push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::STRING, U"retarget/rest_fixer/\u26A0_warnings/mismatched_or_empty_profile", PROPERTY_HINT_MULTILINE_TEXT, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_READ_ONLY), Variant(mismatched_or_empty_profile_warning)));
+		String profile_must_not_be_retargeted_warning = String(
+				"A retargeted skeleton profile cannot be used. "
+				"Use Export Profile from the Skeleton3D toolbar "
+				"from a model imported without BoneMap."); // TODO: translate.
+		r_options->push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::STRING, U"retarget/rest_fixer/\u26A0_warnings/profile_must_not_be_retargeted", PROPERTY_HINT_MULTILINE_TEXT, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_READ_ONLY), Variant(profile_must_not_be_retargeted_warning)));
 		r_options->push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::BOOL, "retarget/rest_fixer/fix_silhouette/enable"), false));
 		// TODO: PostImportPlugin need to be implemented such as validate_option(PropertyInfo &property, const Dictionary &p_options).
 		// get_internal_option_visibility() is not sufficient because it can only retrieve options implemented in the core and can only read option values.
@@ -50,6 +61,50 @@ void PostImportPluginSkeletonRestFixer::get_internal_import_options(InternalImpo
 		r_options->push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::FLOAT, "retarget/rest_fixer/fix_silhouette/threshold"), 15));
 		r_options->push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::FLOAT, "retarget/rest_fixer/fix_silhouette/base_height_adjustment", PROPERTY_HINT_RANGE, "-1,1,0.01"), 0.0));
 	}
+}
+
+Variant PostImportPluginSkeletonRestFixer::get_internal_option_visibility(InternalImportCategory p_category, bool p_for_animation, const String &p_option, const HashMap<StringName, Variant> &p_options) const {
+	if (p_option.begins_with(U"retarget/rest_fixer/\u26A0_warnings/")) {
+		SkeletonProfile *silhouette_target = nullptr;
+		BoneMap *bone_map = nullptr;
+		if (p_options.has("retarget/rest_fixer/silhouette_template") && p_options.has("retarget/bone_map")) {
+			bone_map = Object::cast_to<BoneMap>(p_options["retarget/bone_map"].get_validated_object());
+			silhouette_target = Object::cast_to<SkeletonProfile>(p_options["retarget/rest_fixer/silhouette_template"].get_validated_object());
+		}
+		if (bone_map && silhouette_target) {
+			HashSet<StringName> target_bones;
+			for (int target_i = 0; target_i < silhouette_target->get_bone_size(); target_i++) {
+				target_bones.insert(silhouette_target->get_bone_name(target_i));
+			}
+			Ref<SkeletonProfile> profile = bone_map->get_profile();
+			if (profile.is_valid()) {
+				bool has_mapped = false, missing_target = false, missing_orig_name = false;
+				for (int prof_i = 0; prof_i < profile->get_bone_size(); prof_i++) {
+					StringName profile_bone_name = profile->get_bone_name(prof_i);
+					StringName mapped_bone_name = bone_map->get_skeleton_bone_name(profile_bone_name);
+					if (mapped_bone_name) {
+						has_mapped = true;
+						if (!target_bones.has(mapped_bone_name)) {
+							missing_target = true;
+							if (!target_bones.has(profile_bone_name)) {
+								missing_orig_name = true;
+							}
+						}
+					}
+				}
+				if (missing_target || !has_mapped) {
+					if (!missing_orig_name && p_option == U"retarget/rest_fixer/\u26A0_warnings/profile_must_not_be_retargeted") {
+						return true;
+					}
+					if (missing_orig_name && p_option == U"retarget/rest_fixer/\u26A0_warnings/mismatched_or_empty_profile") {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+	return true;
 }
 
 void PostImportPluginSkeletonRestFixer::internal_process(InternalImportCategory p_category, Node *p_base_scene, Node *p_node, Ref<Resource> p_resource, const Dictionary &p_options) {
@@ -104,6 +159,25 @@ void PostImportPluginSkeletonRestFixer::internal_process(InternalImportCategory 
 				pr = pr->get_parent();
 			}
 			global_transform.origin = Vector3(); // Translation by a Node is not a bone animation, so the retargeted model should be at the origin.
+		}
+
+		// Now we correct the silhouette by copying from another model.
+
+		SkeletonProfile *silhouette_target = nullptr;
+		if (p_options.has("retarget/rest_fixer/silhouette_template")) {
+			silhouette_target = Object::cast_to<SkeletonProfile>(p_options["retarget/rest_fixer/silhouette_template"].get_validated_object());
+		}
+		if (silhouette_target) {
+			HashMap<StringName, int> orig_bone_indices;
+			for (int map_i = 0; map_i < profile->get_bone_size(); map_i++) {
+				orig_bone_indices[bone_map->get_skeleton_bone_name(profile->get_bone_name(map_i))] = src_skeleton->find_bone(profile->get_bone_name(map_i));
+			}
+			for (int target_bone_idx = 0; target_bone_idx < silhouette_target->get_bone_size(); target_bone_idx++) {
+				StringName target_bone_name = silhouette_target->get_bone_name(target_bone_idx);
+				int *orig_bone_idx = orig_bone_indices.getptr(target_bone_name);
+				int bone_idx = orig_bone_idx != nullptr ? *orig_bone_idx : src_skeleton->find_bone(target_bone_name);
+				src_skeleton->set_bone_rest(bone_idx, silhouette_target->get_reference_pose(target_bone_idx));
+			}
 		}
 
 		// Apply node transforms.
