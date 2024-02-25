@@ -47,6 +47,7 @@
 #include "scene/3d/vehicle_body_3d.h"
 #include "scene/animation/animation_player.h"
 #include "scene/resources/animation.h"
+#include "scene/resources/bone_map.h"
 #include "scene/resources/box_shape_3d.h"
 #include "scene/resources/importer_mesh.h"
 #include "scene/resources/packed_scene.h"
@@ -1858,9 +1859,10 @@ bool ResourceImporterScene::get_internal_option_visibility(InternalImportCategor
 			}
 		} break;
 		case INTERNAL_IMPORT_CATEGORY_SKELETON_3D_NODE: {
-			const bool use_retarget = p_options["retarget/bone_map"].get_validated_object() != nullptr;
-			if (p_option != "retarget/bone_map" && p_option.begins_with("retarget/")) {
-				return use_retarget;
+			BoneMap *bone_map = Object::cast_to<BoneMap>(p_options["retarget/bone_map"].get_validated_object());
+			const bool use_retarget = bone_map != nullptr;
+			if (p_option != "retarget/bone_map" && p_option.begins_with("retarget/") && !use_retarget) {
+				return false;
 			}
 		} break;
 		default: {
