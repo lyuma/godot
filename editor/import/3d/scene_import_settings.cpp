@@ -50,6 +50,8 @@ class SceneImportSettingsData : public Object {
 	HashMap<StringName, Variant> current;
 	HashMap<StringName, Variant> defaults;
 	List<ResourceImporter::ImportOption> options;
+	Vector<String> animation_list;
+
 	bool hide_options = false;
 	String path;
 
@@ -131,7 +133,16 @@ class SceneImportSettingsData : public Object {
 					}
 				} else {
 					if (ResourceImporterScene::get_scene_singleton()->get_internal_option_visibility(category, E.option.name, current)) {
-						p_list->push_back(E.option);
+						PropertyInfo option = E.option;
+						if (E.option.name == "rest_animation") {
+							option.hint = PROPERTY_HINT_ENUM;
+							if (settings) {
+								if (settings->has("retarget/rest_fixer/silhouette_template")) {
+									r_ret = (*settings)[p_name];
+
+							option.hint_string = String(",").join(animation_list);
+						}
+						p_list->push_back(option);
 					}
 				}
 			}

@@ -42,17 +42,18 @@ void PostImportPluginSkeletonRestFixer::get_internal_import_options(InternalImpo
 		r_options->push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::BOOL, "retarget/rest_fixer/apply_node_transforms"), true));
 		r_options->push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::BOOL, "retarget/rest_fixer/normalize_position_tracks"), true));
 		r_options->push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::BOOL, "retarget/rest_fixer/overwrite_axis"), true));
-		r_options->push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::OBJECT, "retarget/rest_fixer/silhouette_template", PROPERTY_HINT_RESOURCE_TYPE, "SkeletonProfile", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_UPDATE_ALL_IF_MODIFIED), Variant()));
 		String mismatched_or_empty_profile_warning = String(
-				"Export this profile from a matching skeleton. "
-				"Use Export Profile from the Skeleton3D toolbar "
-				"from a model imported without BoneMap."); // TODO: translate.
-		r_options->push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::STRING, U"retarget/rest_fixer/\u26A0_warnings/mismatched_or_empty_profile", PROPERTY_HINT_MULTILINE_TEXT, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_READ_ONLY), Variant(mismatched_or_empty_profile_warning)));
+				"The external rest animation is missing some bones. "
+				"Use \"Export skeleton rest\" on the Skeleton3D advanced import, or "
+				"disable Remove Immutable Tracks."); // TODO: translate.
+		r_options->push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::STRING, U"retarget/rest_fixer/\u26A0_warnings/mismatched_or_empty_profile",
+				PROPERTY_HINT_MULTILINE_TEXT, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_READ_ONLY), Variant(mismatched_or_empty_profile_warning)));
 		String profile_must_not_be_retargeted_warning = String(
-				"A retargeted skeleton profile cannot be used. "
-				"Use Export Profile from the Skeleton3D toolbar "
-				"from a model imported without BoneMap."); // TODO: translate.
-		r_options->push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::STRING, U"retarget/rest_fixer/\u26A0_warnings/profile_must_not_be_retargeted", PROPERTY_HINT_MULTILINE_TEXT, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_READ_ONLY), Variant(profile_must_not_be_retargeted_warning)));
+				"This external rest animation must not be using a BoneMap. "
+				"Select an animation generated from the Skeleton3D, "
+				"with unchecked Remove Immutable Tracks"); // TODO: translate.
+		r_options->push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::STRING, U"retarget/rest_fixer/\u26A0_warnings/profile_must_not_be_retargeted",
+				PROPERTY_HINT_MULTILINE_TEXT, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_READ_ONLY), Variant(profile_must_not_be_retargeted_warning)));
 		r_options->push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::BOOL, "retarget/rest_fixer/fix_silhouette/enable"), false));
 		// TODO: PostImportPlugin need to be implemented such as validate_option(PropertyInfo &property, const Dictionary &p_options).
 		// get_internal_option_visibility() is not sufficient because it can only retrieve options implemented in the core and can only read option values.
@@ -109,6 +110,19 @@ Variant PostImportPluginSkeletonRestFixer::get_internal_option_visibility(Intern
 
 void PostImportPluginSkeletonRestFixer::internal_process(InternalImportCategory p_category, Node *p_base_scene, Node *p_node, Ref<Resource> p_resource, const Dictionary &p_options) {
 	if (p_category == INTERNAL_IMPORT_CATEGORY_SKELETON_3D_NODE) {
+		Skeleton3D *src_skeleton = Object::cast_to<Skeleton3D>(p_node);
+		if (!src_skeleton) {
+			return;
+		}
+		Ref<Resource> external_animation_or_library = p_options["retarget/external_rest_animation"].get_validated_object();
+		if (external_animation_or_library.is_valid()) {
+			Ref<Animation> rest_animation;
+			if (rest_animation.is_valid()) {
+			} else {
+				rest_animation = Ref<Animation>(external_animation_or_library);
+			}
+		}
+
 		// Prepare objects.
 		Object *map = p_options["retarget/bone_map"].get_validated_object();
 		if (!map) {
@@ -117,10 +131,6 @@ void PostImportPluginSkeletonRestFixer::internal_process(InternalImportCategory 
 		BoneMap *bone_map = Object::cast_to<BoneMap>(map);
 		Ref<SkeletonProfile> profile = bone_map->get_profile();
 		if (!profile.is_valid()) {
-			return;
-		}
-		Skeleton3D *src_skeleton = Object::cast_to<Skeleton3D>(p_node);
-		if (!src_skeleton) {
 			return;
 		}
 
@@ -163,11 +173,18 @@ void PostImportPluginSkeletonRestFixer::internal_process(InternalImportCategory 
 
 		// Now we correct the silhouette by copying from another model.
 
-		SkeletonProfile *silhouette_target = nullptr;
+		Animation *silhouette_target = nullptr;
 		if (p_options.has("retarget/rest_fixer/silhouette_template")) {
-			silhouette_target = Object::cast_to<SkeletonProfile>(p_options["retarget/rest_fixer/silhouette_template"].get_validated_object());
+			silhouette_target = Object::cast_to<Animation>(p_options["retarget/rest_fixer/silhouette_template"].get_validated_object());
 		}
 		if (silhouette_target) {
+			int track_count = silhouette_target->get_track_count();
+			for (int i = 0; i < track_count; i++) {
+				if (!silhouette_target->track_is_imported(i)) {
+					silhouette_target->remove_track(i)
+				}
+			}
+			/*
 			HashMap<StringName, int> orig_bone_indices;
 			for (int map_i = 0; map_i < profile->get_bone_size(); map_i++) {
 				orig_bone_indices[bone_map->get_skeleton_bone_name(profile->get_bone_name(map_i))] = src_skeleton->find_bone(profile->get_bone_name(map_i));
@@ -178,6 +195,7 @@ void PostImportPluginSkeletonRestFixer::internal_process(InternalImportCategory 
 				int bone_idx = orig_bone_idx != nullptr ? *orig_bone_idx : src_skeleton->find_bone(target_bone_name);
 				src_skeleton->set_bone_rest(bone_idx, silhouette_target->get_reference_pose(target_bone_idx));
 			}
+			*/
 		}
 
 		// Apply node transforms.
