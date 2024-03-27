@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  openxr_hand.h                                                         */
+/*  skeleton_modifier_3d.h                                                */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,92 +28,60 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef OPENXR_HAND_H
-#define OPENXR_HAND_H
+#ifndef SKELETON_MODIFIER_3D_H
+#define SKELETON_MODIFIER_3D_H
 
-#include "scene/3d/skeleton_modifier_3d.h"
+#include "scene/3d/node_3d.h"
 
-#include <openxr/openxr.h>
+#include "scene/3d/skeleton_3d.h"
+#include "scene/animation/animation_mixer.h"
 
-class OpenXRAPI;
-class OpenXRHandTrackingExtension;
+class SkeletonModifier3D : public Node3D {
+	GDCLASS(SkeletonModifier3D, Node3D);
 
-class OpenXRHand : public SkeletonModifier3D {
-	GDCLASS(OpenXRHand, SkeletonModifier3D);
-
-public:
-	enum Hands { // Deprecated, need to change this to OpenXRInterface::Hands.
-		HAND_LEFT,
-		HAND_RIGHT,
-		HAND_MAX
-	};
-
-	enum MotionRange { // Deprecated, need to change this to OpenXRInterface::HandMotionRange.
-		MOTION_RANGE_UNOBSTRUCTED,
-		MOTION_RANGE_CONFORM_TO_CONTROLLER,
-		MOTION_RANGE_MAX
-	};
-
-	enum SkeletonRig {
-		SKELETON_RIG_OPENXR,
-		SKELETON_RIG_HUMANOID,
-		SKELETON_RIG_MAX
-	};
-
-	enum BoneUpdate {
-		BONE_UPDATE_FULL,
-		BONE_UPDATE_ROTATION_ONLY,
-		BONE_UPDATE_MAX
-	};
-
-private:
-	struct JointData {
-		int bone = -1;
-		int parent_joint = -1;
-	};
-
-	OpenXRAPI *openxr_api = nullptr;
-	OpenXRHandTrackingExtension *hand_tracking_ext = nullptr;
-
-	Hands hand = HAND_LEFT;
-	MotionRange motion_range = MOTION_RANGE_UNOBSTRUCTED;
-	NodePath hand_skeleton;
-	SkeletonRig skeleton_rig = SKELETON_RIG_OPENXR;
-	BoneUpdate bone_update = BONE_UPDATE_FULL;
-
-	JointData joints[XR_HAND_JOINT_COUNT_EXT];
-
-	void _set_motion_range();
-
-	void _get_joint_data();
-	void _update_skeleton();
+	void rebind();
 
 protected:
+	bool active = true;
+	real_t influence = 1.0;
+
+	// Cache them for the performance reason since finding node with NodePath is slow.
+	ObjectID skeleton_id;
+
+	void _update_skeleton();
+	void _update_skeleton_path();
+
+	virtual void _skeleton_changed(Skeleton3D *p_old, Skeleton3D *p_new);
+	virtual void _rebind();
+
+	void _validate_property(PropertyInfo &p_property) const;
+	void _notification(int p_what);
 	static void _bind_methods();
 
-	virtual void _process_modification() override;
+	virtual void _set_active(bool p_active);
+
+	virtual void _process_modification();
+	GDVIRTUAL0(_process_modification);
 
 public:
-	OpenXRHand();
+	virtual PackedStringArray get_configuration_warnings() const override;
+	virtual bool has_process() const { return false; } // Return true if modifier needs to modify bone pose without external animation such as physics, jiggle and etc.
 
-	void set_hand(Hands p_hand);
-	Hands get_hand() const;
+	void set_active(bool p_active);
+	bool is_active() const;
 
-	void set_motion_range(MotionRange p_motion_range);
-	MotionRange get_motion_range() const;
+	void set_influence(real_t p_influence);
+	real_t get_influence() const;
 
-	void set_skeleton_rig(SkeletonRig p_skeleton_rig);
-	SkeletonRig get_skeleton_rig() const;
+	Skeleton3D *get_skeleton() const;
 
-	void set_bone_update(BoneUpdate p_bone_update);
-	BoneUpdate get_bone_update() const;
+	void process_modification();
 
-	void _notification(int p_what);
+#ifdef TOOLS_ENABLED
+	virtual void notify_rebind_required();
+#endif
+
+	SkeletonModifier3D();
 };
 
-VARIANT_ENUM_CAST(OpenXRHand::Hands)
-VARIANT_ENUM_CAST(OpenXRHand::MotionRange)
-VARIANT_ENUM_CAST(OpenXRHand::SkeletonRig)
-VARIANT_ENUM_CAST(OpenXRHand::BoneUpdate)
-
-#endif // OPENXR_HAND_H
+#endif // SKELETON_MODIFIER_3D_H
