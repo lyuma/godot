@@ -520,7 +520,7 @@ void OpenXRActionMap::create_default_action_sets() {
 			"/user/vive_tracker_htcx/role/left_wrist/input/grip/pose,"
 			"/user/vive_tracker_htcx/role/right_wrist/input/grip/pose,"
 			"/user/vive_tracker_htcx/role/left_ankle/input/grip/pose,"
-			"/user/vive_tracker_htcx/role/right_ankle/input/grip/pose");
+			"/user/vive_tracker_htcx/role/right_ankle/input/grip/pose);
 	profile->add_new_binding(haptic,
 			// "/user/vive_tracker_htcx/role/handheld_object/output/haptic," <-- getting errors on this one.
 			"/user/vive_tracker_htcx/role/left_foot/output/haptic,"

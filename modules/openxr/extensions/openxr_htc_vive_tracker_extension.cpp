@@ -31,6 +31,7 @@
 #include "openxr_htc_vive_tracker_extension.h"
 
 #include "../action_map/openxr_interaction_profile_metadata.h"
+#include "../openxr_api.h"
 
 #include "core/string/print_string.h"
 
@@ -67,6 +68,48 @@ PackedStringArray OpenXRHTCViveTrackerExtension::get_suggested_tracker_names() {
 
 bool OpenXRHTCViveTrackerExtension::is_available() {
 	return available;
+}
+
+void OpenXRHTCViveTrackerExtension::poll_tracker_list() {
+	OpenXRAPI *openxr_api = OpenXRAPI::get_singleton();
+	uint32_t tracker_count = 0;
+	XrResult result = xrEnumerateViveTrackerPathsHTCX(
+			openxr_api->get_instance(),
+			0, // pathCapacityInput = 0 (just asking for count)
+			&tracker_count,
+			nullptr // paths = NULL
+	);
+	print_line("    == POLL: ", (int)tracker_count, " Vive Trackers: ", (int)result);
+
+	if (result == XR_SUCCESS && tracker_count > 0) {
+		// 2. Allocate memory for the results
+		LocalVector<XrViveTrackerPathsHTCX> trackers;
+		trackers.resize(tracker_count);
+
+		// 3. Second call: Get the actual data
+		result = xrEnumerateViveTrackerPathsHTCX(
+				openxr_api->get_instance(),
+				tracker_count, // pathCapacityInput = actual size
+				&tracker_count,
+				&(trackers[0]));
+		for (const XrViveTrackerPathsHTCX &paths : trackers) {
+			String persistentPath = openxr_api->get_xr_path_name(paths.persistentPath);
+			if (paths.rolePath != XR_NULL_PATH) {
+				String rolePath = openxr_api->get_xr_path_name(paths.rolePath);
+				print_line("      -> POLL: Vive Tracker currently at role ", rolePath, ": ", persistentPath);
+			} else {
+				print_line("      -> POLL: Vive Tracker currently at XR_NULL_PATH: ", persistentPath);
+				OpenXRInteractionProfileMetadata *openxr_metadata = OpenXRInteractionProfileMetadata::get_singleton();
+				openxr_metadata->register_top_level_path(persistentPath, persistentPath, XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME);
+				RID new_interaction_profile = openxr_api->interaction_profile_create(persistentPath);
+			}
+
+		}
+	}
+}
+
+void OpenXRHTCViveTrackerExtension::on_instance_created(const XrInstance p_instance) {
+	EXT_INIT_XR_FUNC(xrEnumerateViveTrackerPathsHTCX);
 }
 
 void OpenXRHTCViveTrackerExtension::on_register_metadata() {
@@ -134,15 +177,36 @@ void OpenXRHTCViveTrackerExtension::on_register_metadata() {
 			openxr_metadata->register_io_path(profile_path, "Haptic output", user_path, user_path + "/output/haptic", "", OpenXRAction::OPENXR_ACTION_HAPTIC);
 		}
 	}
+	poll_tracker_list();
 }
 
 bool OpenXRHTCViveTrackerExtension::on_event_polled(const XrEventDataBuffer &event) {
 	switch (event.type) {
 		case XR_TYPE_EVENT_DATA_VIVE_TRACKER_CONNECTED_HTCX: {
 			// Investigate if we need to do more here
+			OpenXRAPI *openxr_api = OpenXRAPI::get_singleton();
 			print_verbose("OpenXR EVENT: VIVE tracker connected");
-
-			return true;
+			const XrEventDataViveTrackerConnectedHTCX &tracker_event =
+					reinterpret_cast<const XrEventDataViveTrackerConnectedHTCX &>(event);
+			ERR_FAIL_NULL_V(tracker_event.paths, true);
+			String persistentPath = openxr_api->get_xr_path_name(tracker_event.paths->persistentPath);
+			if (tracker_event.paths->rolePath != XR_NULL_PATH) {
+				String rolePath = openxr_api->get_xr_path_name(tracker_event.paths->rolePath);
+				print_line("Vive Tracker connected to role ", rolePath, ": ", persistentPath);
+			} else {
+				print_line("Vive Tracker connected to XR_NULL_PATH: ", persistentPath);
+				OpenXRInteractionProfileMetadata *openxr_metadata = OpenXRInteractionProfileMetadata::get_singleton();
+				openxr_metadata->register_top_level_path(persistentPath, persistentPath, XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME);
+				RID new_interaction_profile = openxr_api->interaction_profile_create(persistentPath);
+			}
+			poll_tracker_list();
+            return true; // Event handled
+		} break;
+		case XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED: {
+			XrSession session = ((const XrEventDataInteractionProfileChanged &)event).session;
+			print_line("XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED");
+			poll_tracker_list();
+			return false;
 		} break;
 		default: {
 			return false;

@@ -32,6 +32,8 @@
 
 #include "openxr_extension_wrapper.h"
 
+#include "../openxr_api.h"
+
 class OpenXRHTCViveTrackerExtension : public OpenXRExtensionWrapper {
 	GDCLASS(OpenXRHTCViveTrackerExtension, OpenXRExtensionWrapper);
 
@@ -45,9 +47,12 @@ public:
 
 	bool is_available();
 
+	virtual void on_instance_created(const XrInstance p_instance) override;
 	virtual void on_register_metadata() override;
 	virtual bool on_event_polled(const XrEventDataBuffer &event) override;
+	void poll_tracker_list();
 
 private:
 	bool available = false;
+	EXT_PROTO_XRRESULT_FUNC4(xrEnumerateViveTrackerPathsHTCX, (XrInstance), instance, (uint32_t), pathCapacityInput, (uint32_t *), pathCountOutput, (XrViveTrackerPathsHTCX *), paths);
 };
