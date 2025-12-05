@@ -178,6 +178,9 @@
 #include "tests/scene/test_copy_transform_modifier_3d.h"
 #include "tests/scene/test_decal.h"
 #ifdef MODULE_GLTF_ENABLED
+#ifdef UFBX_WRITE_AVAILABLE
+#include "tests/scene/test_fbx_document.h"
+#endif // UFBX_WRITE_AVAILABLE
 #include "tests/scene/test_gltf_document.h"
 #endif
 #include "tests/scene/test_path_3d.h"
